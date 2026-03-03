@@ -2,15 +2,23 @@ package com.nrikesari.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Light Theme Colors
+/* -------------------- */
+/* BRAND COLORS (From Logo) */
+/* -------------------- */
+
 val WarmIvory = Color(0xFFF2EDEA)
-val DarkCharcoal = Color(0xFF2E2E2E)
-val DeepMaroon = Color(0xFF8B2C2C)
 val SoftBeige = Color(0xFFCFC6BD)
+val DeepMaroon = Color(0xFF9E3A3A)
+val DarkCharcoal = Color(0xFF1F1F22)
 val White = Color(0xFFFFFFFF)
 
-// Dark Theme Colors
-val NearBlack = Color(0xFF0E0E10)
-val SoftWhite = Color(0xFFF0F0F0)
-val DarkMaroon = Color(0xFF6A1E1E)
-val DarkSurface = Color(0xFF1E1E22)
+/* -------------------- */
+/* DARK THEME (Derived from same palette) */
+/* -------------------- */
+
+val DarkBackground = Color(0xFF141312)
+val DarkSurface = Color(0xFF1C1A19)
+val DarkSurfaceElevated = Color(0xFF242220)
+
+val DarkOnBackground = Color(0xFFE6DFD9)
+val DarkOnSurface = Color(0xFFD5CCC5)
