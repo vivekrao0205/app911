@@ -53,38 +53,38 @@ fun HomeScreen(navController: NavController) {
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // 🌿 Adaptive Background
+        //  Adaptive Background
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(colorScheme.background)
         )
 
-        // 🌊 Jelly Blob 1 (theme-based)
+        // Jelly Blob 1 (theme-based)
         Box(
             modifier = Modifier
                 .offset(x = offsetX.dp, y = offsetY.dp)
-                .size(350.dp)
-                .blur(120.dp)
+                .size(300.dp)
+                .blur(150.dp)
                 .background(
                     colorScheme.primary.copy(alpha = 0.15f),
                     shape = CircleShape
                 )
         )
 
-        // 🌊 Jelly Blob 2
+        // Jelly Blob 2
         Box(
             modifier = Modifier
                 .offset(x = (-offsetX).dp, y = (offsetY / 2).dp)
-                .size(300.dp)
-                .blur(140.dp)
+                .size(250.dp)
+                .blur(150.dp)
                 .background(
                     colorScheme.secondary.copy(alpha = 0.18f),
                     shape = CircleShape
                 )
         )
 
-        // 🌫 Glass Content Layer
+        //  Glass  Layer
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -119,7 +119,7 @@ fun HomeScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(50.dp))
 
-            // ✨ Highlighted Hero Text
+            //  Highlighted Hero Text
             Text(
                 buildAnnotatedString {
                     append("We Build ")

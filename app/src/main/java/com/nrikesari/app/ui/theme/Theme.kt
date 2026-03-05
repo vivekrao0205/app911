@@ -11,9 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-/* -------------------- */
 /* DARK COLOR SCHEME */
-/* -------------------- */
 
 private val DarkColorScheme = darkColorScheme(
 
@@ -35,9 +33,7 @@ private val DarkColorScheme = darkColorScheme(
     surfaceTint = DeepMaroon
 )
 
-/* -------------------- */
 /* LIGHT COLOR SCHEME */
-/* -------------------- */
 
 private val LightColorScheme = lightColorScheme(
 

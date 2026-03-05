@@ -2,9 +2,7 @@ package com.nrikesari.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-/* -------------------- */
 /* BRAND COLORS */
-/* -------------------- */
 
 val WarmIvory = Color(0xFFF2EDEA)
 val SoftBeige = Color(0xFFCFC6BD)

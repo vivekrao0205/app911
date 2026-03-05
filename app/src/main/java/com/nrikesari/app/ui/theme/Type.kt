@@ -6,16 +6,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-/* -------------------- */
 /* FONT FAMILIES */
-/* -------------------- */
 
 val ElegantSerif = FontFamily.Serif
 val CleanSans = FontFamily.SansSerif
 
-/* -------------------- */
-/* NRiKESARI TYPOGRAPHY SYSTEM */
-/* -------------------- */
+/* TYPOGRAPHY SYSTEM */
 
 val Typography = Typography(
 
