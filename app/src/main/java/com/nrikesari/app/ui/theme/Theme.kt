@@ -18,12 +18,10 @@ import androidx.core.view.WindowCompat
 private val DarkColorScheme = darkColorScheme(
 
     primary = DeepMaroon,
-    onPrimary = WarmIvory,
+    onPrimary = PureWhite,
 
     secondary = SoftBeige,
     onSecondary = DarkBackground,
-
-    tertiary = DeepMaroon,
 
     background = DarkBackground,
     onBackground = DarkOnBackground,
@@ -32,7 +30,9 @@ private val DarkColorScheme = darkColorScheme(
     onSurface = DarkOnSurface,
 
     surfaceVariant = DarkSurfaceElevated,
-    onSurfaceVariant = DarkOnSurface
+    onSurfaceVariant = DarkOnSurface,
+
+    surfaceTint = DeepMaroon
 )
 
 /* -------------------- */
@@ -42,20 +42,21 @@ private val DarkColorScheme = darkColorScheme(
 private val LightColorScheme = lightColorScheme(
 
     primary = DeepMaroon,
-    onPrimary = White,
+    onPrimary = PureWhite,
 
     secondary = SoftBeige,
     onSecondary = DarkCharcoal,
 
-    tertiary = DeepMaroon,
-
     background = WarmIvory,
     onBackground = DarkCharcoal,
 
-    surface = White,
+    surface = PureWhite,
     onSurface = DarkCharcoal,
 
-    surfaceVariant = SoftBeige.copy(alpha = 0.15f)
+    surfaceVariant = SoftBeige.copy(alpha = 0.2f),
+    onSurfaceVariant = DarkCharcoal,
+
+    surfaceTint = DeepMaroon
 )
 
 /* -------------------- */
@@ -72,9 +73,12 @@ fun NrikesariTheme(
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context)
-            else dynamicLightColorScheme(context)
+            if (darkTheme)
+                dynamicDarkColorScheme(context)
+            else
+                dynamicLightColorScheme(context)
         }
+
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
@@ -84,10 +88,19 @@ fun NrikesariTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
+
+            // Status bar color
             window.statusBarColor = colorScheme.background.toArgb()
 
+            // Navigation bar color
+            window.navigationBarColor = colorScheme.background.toArgb()
+
+            // Light / Dark icons
             WindowCompat.getInsetsController(window, view)
-                .isAppearanceLightStatusBars = !darkTheme
+                .apply {
+                    isAppearanceLightStatusBars = !darkTheme
+                    isAppearanceLightNavigationBars = !darkTheme
+                }
         }
     }
 
