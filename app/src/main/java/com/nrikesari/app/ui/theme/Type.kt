@@ -15,7 +15,7 @@ val CleanSans = FontFamily.SansSerif
 
 val Typography = Typography(
 
-    /* -------- HERO / SPLASH -------- */
+    /* -------- HERO -------- */
 
     displayLarge = TextStyle(
         fontFamily = ElegantSerif,
