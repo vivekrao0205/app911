@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,11 +18,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.nrikesari.app.firebase.FirebaseService
+import com.nrikesari.app.model.ProjectInquiry
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProjectEnquiryScreen() {
 
     val context = LocalContext.current
+    val firebaseService = remember { FirebaseService() }
+    val coroutineScope = rememberCoroutineScope()
 
     var name by remember { mutableStateOf("") }
     var contact by remember { mutableStateOf("") }
@@ -36,6 +42,10 @@ fun ProjectEnquiryScreen() {
         "Web Dev",
         "App Dev"
     )
+    
+    var isSubmitting by remember { mutableStateOf(false) }
+    var submitSuccess by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     /* -------- Animated Background -------- */
 
@@ -72,6 +82,23 @@ fun ProjectEnquiryScreen() {
         )
 
         Spacer(modifier = Modifier.height(20.dp))
+
+        if (submitSuccess) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)
+            ) {
+                Text(
+                    "Project inquiry submitted successfully! We'll be in touch soon.",
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
+        
+        errorMessage?.let {
+            Text(text = it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 12.dp))
+        }
 
         /* -------- FORM -------- */
 
@@ -113,18 +140,24 @@ fun ProjectEnquiryScreen() {
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        services.forEach {
+        services.forEach { serviceName ->
 
             Row(
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { service = serviceName }
+                    .padding(vertical = 8.dp)
             ) {
 
                 RadioButton(
-                    selected = service == it,
-                    onClick = { service = it }
+                    selected = service == serviceName,
+                    onClick = { service = serviceName }
                 )
+                
+                Spacer(modifier = Modifier.width(8.dp))
 
-                Text(it)
+                Text(serviceName)
             }
         }
 
@@ -134,35 +167,55 @@ fun ProjectEnquiryScreen() {
 
         Button(
             onClick = {
-
-                val message = """
-New Project Inquiry - Nrikesari
-
-Name: $name
-Contact: $contact
-Service: $service
-
-Description:
-$description
-                """.trimIndent()
-
-                val url = "https://wa.me/916305313360?text=${Uri.encode(message)}"
-
-                context.startActivity(
-                    Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                val userId = firebaseService.currentUser?.uid
+                if (userId == null) {
+                    errorMessage = "Please login from Settings to submit a project."
+                    return@Button
+                }
+                
+                if (name.isBlank() || contact.isBlank() || description.isBlank()) {
+                    errorMessage = "Please fill out all fields."
+                    return@Button
+                }
+                
+                isSubmitting = true
+                errorMessage = null
+                
+                val inquiry = ProjectInquiry(
+                    userId = userId,
+                    name = name.trim(),
+                    contact = contact.trim(),
+                    service = service,
+                    description = description.trim()
                 )
+                
+                coroutineScope.launch {
+                    val result = firebaseService.submitProjectInquiry(inquiry)
+                    isSubmitting = false
+                    if (result.isSuccess) {
+                        submitSuccess = true
+                        name = ""
+                        contact = ""
+                        description = ""
+                    } else {
+                        errorMessage = "Submission failed. Try again."
+                    }
+                }
             },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(55.dp),
-            shape = RoundedCornerShape(30.dp)
+            shape = RoundedCornerShape(30.dp),
+            enabled = !isSubmitting && !submitSuccess
         ) {
 
-            Icon(Icons.Default.Send, null)
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Text("Send Inquiry")
+            if (isSubmitting) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+            } else {
+                Icon(Icons.Default.Send, null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(if (submitSuccess) "Submitted" else "Send Inquiry")
+            }
         }
 
         Spacer(modifier = Modifier.height(40.dp))

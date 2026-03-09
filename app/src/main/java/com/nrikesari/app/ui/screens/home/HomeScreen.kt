@@ -8,12 +8,17 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.FormatQuote
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,11 +35,15 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.nrikesari.app.R
 import com.nrikesari.app.navigation.Screen
+import com.nrikesari.app.firebase.FirebaseService
+import com.nrikesari.app.model.Testimonial
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreen(navController: NavController) {
@@ -78,9 +87,13 @@ fun HomeScreen(navController: NavController) {
 
             ActionButtons(navController)
 
-            Spacer(modifier = Modifier.height(40.dp))
-
             StatsSection()
+
+            Spacer(modifier = Modifier.height(60.dp))
+
+            TestimonialSection()
+
+            Spacer(modifier = Modifier.height(60.dp))
 
             Spacer(modifier = Modifier.height(60.dp))
         }
@@ -293,5 +306,118 @@ fun StatItem(icon: ImageVector, value: String, label: String) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
         )
+    }
+}
+
+/* ---------------- TESTIMONIALS ---------------- */
+
+@Composable
+fun TestimonialSection() {
+    val firebaseService = remember { FirebaseService() }
+    var testimonials by remember { mutableStateOf<List<Testimonial>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        val result = firebaseService.getTestimonials()
+        if (result.isSuccess) {
+            testimonials = result.getOrDefault(emptyList())
+        }
+        isLoading = false
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = "Client Feedback",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+        } else if (testimonials.isEmpty()) {
+             Text(
+                "No reviews available yet.",
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
+        } else {
+             LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp)
+            ) {
+                items(testimonials) { testimonial ->
+                    TestimonialCard(testimonial)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TestimonialCard(testimonial: Testimonial) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(2.dp),
+        modifier = Modifier.width(300.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Icon(
+                Icons.Default.FormatQuote, 
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                modifier = Modifier.size(32.dp)
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = testimonial.feedback,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                minLines = 3,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = testimonial.clientName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = testimonial.serviceType,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+                
+                Row {
+                    val fullStars = testimonial.rating.toInt()
+                    // Simplistic star rendering
+                    repeat(fullStars) {
+                        Icon(Icons.Default.Star, contentDescription = "Star", tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+        }
     }
 }

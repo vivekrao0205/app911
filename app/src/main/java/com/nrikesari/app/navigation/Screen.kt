@@ -19,9 +19,16 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
     object Premium : Screen("premium")
 
+    /* -------- Auth -------- */
+
+    object Login : Screen("login")
+    object Signup : Screen("signup")
+
     /* -------- Project -------- */
 
     object ProjectEnquiry : Screen("project_enquiry")
+    object MyProjects : Screen("my_projects")
+    object BookCall : Screen("book_call")
 
     object ProjectDetail : Screen("project_detail/{projectId}") {
 
@@ -29,6 +36,15 @@ sealed class Screen(val route: String) {
 
         fun createRoute(projectId: String): String {
             return "project_detail/$projectId"
+        }
+    }
+
+    object Chat : Screen("chat/{projectId}") {
+
+        const val ARG_PROJECT_ID = "projectId"
+
+        fun createRoute(projectId: String): String {
+            return "chat/$projectId"
         }
     }
 

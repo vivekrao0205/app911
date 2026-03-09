@@ -19,12 +19,17 @@ import com.nrikesari.app.ui.screens.portfolio.PortfolioScreen
 import com.nrikesari.app.ui.screens.portfolio.ProjectDetailScreen
 import com.nrikesari.app.ui.screens.projects.ProjectEnquiryScreen
 import com.nrikesari.app.ui.screens.projects.ProjectsScreen
+import com.nrikesari.app.ui.screens.projects.MyProjectsScreen
+import com.nrikesari.app.ui.screens.contact.BookCallScreen
+import com.nrikesari.app.ui.screens.chat.ChatScreen
 import com.nrikesari.app.ui.screens.premium.PremiumFeaturesScreen
 import com.nrikesari.app.ui.screens.services.ServiceDetailScreen
 import com.nrikesari.app.ui.screens.services.ServicesScreen
 import com.nrikesari.app.ui.screens.settings.SettingsScreen
 import com.nrikesari.app.ui.screens.skills.SkillsScreen
 import com.nrikesari.app.ui.screens.splash.SplashScreen
+import com.nrikesari.app.ui.screens.auth.LoginScreen
+import com.nrikesari.app.ui.screens.auth.SignupScreen
 import com.nrikesari.app.viewmodel.MainViewModel
 
 @Composable
@@ -40,7 +45,12 @@ fun NrikesariNavGraph(
         Screen.Splash.route,
         Screen.ProjectEnquiry.route,
         Screen.ServiceDetail.route,
-        Screen.ProjectDetail.route
+        Screen.ProjectDetail.route,
+        Screen.Login.route,
+        Screen.Signup.route,
+        Screen.MyProjects.route,
+        Screen.BookCall.route,
+        "chat/{projectId}"
     )
 
     val showBottomBar = currentRoute !in hideBarsRoutes
@@ -155,6 +165,30 @@ fun NrikesariNavGraph(
 
             composable(Screen.ProjectEnquiry.route) {
                 ProjectEnquiryScreen()
+            }
+
+            composable(Screen.MyProjects.route) {
+                MyProjectsScreen(navController)
+            }
+
+            composable(
+                route = Screen.Chat.route,
+                arguments = listOf(navArgument("projectId") { type = NavType.StringType })
+            ) { entry ->
+                val projectId = entry.arguments?.getString("projectId") ?: return@composable
+                ChatScreen(navController, projectId)
+            }
+
+            composable(Screen.BookCall.route) {
+                BookCallScreen(navController)
+            }
+
+            composable(Screen.Login.route) {
+                LoginScreen(navController)
+            }
+
+            composable(Screen.Signup.route) {
+                SignupScreen(navController)
             }
         }
     }

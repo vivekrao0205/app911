@@ -17,6 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.nrikesari.app.model.PreferencesManager
+import com.nrikesari.app.model.User
+import com.nrikesari.app.firebase.FirebaseService
+import com.nrikesari.app.navigation.Screen
 import kotlinx.coroutines.launch
 
 @Composable
@@ -27,6 +30,19 @@ fun SettingsScreen(navController: NavController) {
     val isDarkMode by preferencesManager.darkModeFlow.collectAsState(initial = true)
 
     val coroutineScope = rememberCoroutineScope()
+    val firebaseService = remember { FirebaseService() }
+    
+    var currentUserProfile by remember { mutableStateOf<User?>(null) }
+    
+    LaunchedEffect(firebaseService.currentUser) {
+        val uid = firebaseService.currentUser?.uid
+        if (uid != null) {
+            val result = firebaseService.getUserProfile(uid)
+            currentUserProfile = result.getOrNull()
+        } else {
+            currentUserProfile = null
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -37,7 +53,7 @@ fun SettingsScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(40.dp))
 
         Text(
-            text = "Settings",
+            text = "Settings & Profile",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
@@ -46,9 +62,69 @@ fun SettingsScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Customize your app experience",
+            text = "Manage your account and app preferences",
             style = MaterialTheme.typography.bodyMedium
         )
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        if (currentUserProfile != null) {
+            SectionTitle("Dashboard")
+            SettingsCard {
+                SettingsItem(
+                    icon = Icons.Default.AccountCircle,
+                    title = currentUserProfile!!.name,
+                    subtitle = currentUserProfile!!.email,
+                    trailing = {
+                        Text(
+                            "Logout", 
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable {
+                                firebaseService.logout()
+                                currentUserProfile = null
+                            }
+                        )
+                    }
+                )
+                
+                HorizontalDivider(thickness = 0.6.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                
+                SettingsItem(
+                    icon = Icons.Default.Workspaces,
+                    title = "My Projects",
+                    subtitle = "View your project status",
+                    trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
+                    onClick = {
+                        navController.navigate("my_projects") 
+                    }
+                )
+                
+                HorizontalDivider(thickness = 0.6.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                
+                SettingsItem(
+                    icon = Icons.Default.Event,
+                    title = "Book a Call",
+                    subtitle = "Schedule a consultation",
+                    trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
+                    onClick = {
+                        navController.navigate(Screen.BookCall.route)
+                    }
+                )
+            }
+        } else {
+            SettingsCard {
+                SettingsItem(
+                    icon = Icons.Default.Login,
+                    title = "Login / Sign Up",
+                    subtitle = "Sign in to manage your projects",
+                    trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
+                    onClick = {
+                        navController.navigate(Screen.Login.route)
+                    }
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(28.dp))
 
@@ -219,13 +295,14 @@ fun SettingsItem(
     icon: ImageVector,
     title: String,
     subtitle: String,
+    onClick: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)
 ) {
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { }
+            .clickable(enabled = onClick != null) { onClick?.invoke() }
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
