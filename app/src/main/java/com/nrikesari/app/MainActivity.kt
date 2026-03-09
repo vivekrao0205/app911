@@ -21,11 +21,25 @@ import com.nrikesari.app.ui.theme.NrikesariTheme
 import com.nrikesari.app.viewmodel.AppRepository
 import com.nrikesari.app.viewmodel.MainViewModel
 import com.nrikesari.app.viewmodel.MainViewModelFactory
+import com.nrikesari.app.viewmodel.AuthViewModel
+import com.nrikesari.app.viewmodel.UserViewModel
+import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 🔥 Firebase Test (This will send data to Firestore)
+        val db = FirebaseFirestore.getInstance()
+
+        val test = hashMapOf(
+            "name" to "Vivek",
+            "project" to "Nrikesari App"
+        )
+
+        db.collection("test")
+            .add(test)
 
         enableEdgeToEdge()
 
@@ -41,9 +55,13 @@ class MainActivity : ComponentActivity() {
 
                 val database = AppDatabase.getDatabase(context)
                 val repository = AppRepository(database.appDao())
+
                 val viewModel: MainViewModel = viewModel(
                     factory = MainViewModelFactory(repository)
                 )
+
+                val authViewModel: AuthViewModel = viewModel()
+                val userViewModel: UserViewModel = viewModel()
 
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -51,7 +69,9 @@ class MainActivity : ComponentActivity() {
                 ) {
                     NrikesariNavGraph(
                         navController = navController,
-                        viewModel = viewModel
+                        viewModel = viewModel,
+                        authViewModel = authViewModel,
+                        userViewModel = userViewModel
                     )
                 }
             }

@@ -1,172 +1,278 @@
 package com.nrikesari.app.firebase
 
 import android.net.Uri
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.storage.FirebaseStorage
 import com.nrikesari.app.model.*
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.tasks.await
 import java.util.UUID
 
 class FirebaseService {
 
-    // --- Mock User Data ---
-    private var mockCurrentUser: User? = null
-    
-    // Check if we have a mocked user
-    val currentUser: User? get() = mockCurrentUser
+    private val auth = FirebaseAuth.getInstance()
+    private val firestore = FirebaseFirestore.getInstance()
+    private val storage = FirebaseStorage.getInstance()
 
-    // Mock Login
+    // ---------------- AUTH ----------------
+
+    val currentUser get() = auth.currentUser
+
     suspend fun login(email: String, pass: String): Result<Unit> {
-        delay(1000) // Simulate network delay
         return try {
-            if (email.isNotBlank() && pass.isNotBlank()) {
-                mockCurrentUser = User(
-                    uid = UUID.randomUUID().toString(),
-                    name = "Mock User",
-                    email = email
-                )
-                Result.success(Unit)
-            } else {
-                Result.failure(Exception("Invalid credentials"))
-            }
+
+            auth.signInWithEmailAndPassword(email, pass).await()
+
+            val uid = auth.currentUser?.uid
+                ?: return Result.failure(Exception("User not found"))
+
+            ensureUserProfile(uid)
+
+            Result.success(Unit)
+
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // Mock Signup
-    suspend fun signup(email: String, pass: String, name: String, phone: String): Result<Unit> {
-        delay(1000)
+    suspend fun signup(
+        email: String,
+        pass: String,
+        name: String,
+        phone: String
+    ): Result<Unit> {
+
         return try {
-            if (email.isNotBlank() && pass.isNotBlank() && name.isNotBlank()) {
-                 mockCurrentUser = User(
-                    uid = UUID.randomUUID().toString(),
-                    name = name,
-                    email = email,
-                    phone = phone
-                )
-                Result.success(Unit)
-            } else {
-                 Result.failure(Exception("Registration failed: missing fields"))
-            }
+
+            val result = auth.createUserWithEmailAndPassword(email, pass).await()
+            val uid = result.user?.uid
+                ?: return Result.failure(Exception("User ID null"))
+
+            val userData = hashMapOf(
+                "uid" to uid,
+                "name" to name,
+                "email" to email,
+                "phone" to phone,
+                "createdAt" to FieldValue.serverTimestamp()
+            )
+
+            firestore.collection("users")
+                .document(uid)
+                .set(userData)
+                .await()
+
+            Result.success(Unit)
+
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
     fun logout() {
-        mockCurrentUser = null
+        auth.signOut()
     }
 
-    // --- User Profile ---
+    // ---------------- USER PROFILE ----------------
+
     suspend fun getUserProfile(uid: String): Result<User?> {
-        delay(500)
-        return Result.success(mockCurrentUser)
+
+        return try {
+
+            val doc = firestore.collection("users")
+                .document(uid)
+                .get()
+                .await()
+
+            val user = doc.toObject(User::class.java)
+
+            Result.success(user)
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    // --- Projects ---
+    // Create profile if missing (important for Google login)
+
+    private suspend fun ensureUserProfile(uid: String) {
+
+        val doc = firestore.collection("users")
+            .document(uid)
+            .get()
+            .await()
+
+        if (!doc.exists()) {
+
+            val firebaseUser = auth.currentUser ?: return
+
+            val userData = hashMapOf(
+                "uid" to uid,
+                "name" to (firebaseUser.displayName ?: "User"),
+                "email" to (firebaseUser.email ?: ""),
+                "phone" to "",
+                "createdAt" to FieldValue.serverTimestamp()
+            )
+
+            firestore.collection("users")
+                .document(uid)
+                .set(userData)
+                .await()
+        }
+    }
+
+    // ---------------- PROJECT INQUIRY ----------------
+
     suspend fun submitProjectInquiry(inquiry: ProjectInquiry): Result<Unit> {
-        delay(800)
-        return Result.success(Unit)
+
+        return try {
+
+            val id = if (inquiry.id.isBlank())
+                UUID.randomUUID().toString()
+            else inquiry.id
+
+            val newInquiry = inquiry.copy(id = id)
+
+            firestore.collection("inquiries")
+                .document(id)
+                .set(newInquiry)
+                .await()
+
+            Result.success(Unit)
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun getUserProjects(userId: String): Result<List<ProjectInquiry>> {
-        delay(800)
-        // Mocking a few past projects for the user
-        val mockProjects = listOf(
-            ProjectInquiry(
-                id = UUID.randomUUID().toString(),
-                userId = userId,
-                name = "My Awesome App",
-                contact = "hello@example.com",
-                service = "App Dev",
-                description = "Need a fitness app built from scratch.",
-                status = "In Progress"
-            ),
-             ProjectInquiry(
-                id = UUID.randomUUID().toString(),
-                userId = userId,
-                name = "Corporate Website",
-                contact = "hello@example.com",
-                service = "Web Dev",
-                description = "Redesigning our company portfolio.",
-                status = "Review"
-            )
-        )
-        return Result.success(mockProjects)
+
+        return try {
+
+            val snapshot = firestore.collection("inquiries")
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+
+            val list = snapshot.documents.mapNotNull {
+                it.toObject(ProjectInquiry::class.java)
+            }
+
+            Result.success(list)
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    // --- Booking ---
+    // ---------------- BOOKINGS ----------------
+
     suspend fun submitBooking(booking: Booking): Result<Unit> {
-        delay(800)
-        return Result.success(Unit)
+
+        return try {
+
+            val id = if (booking.id.isBlank())
+                UUID.randomUUID().toString()
+            else booking.id
+
+            val newBooking = booking.copy(id = id)
+
+            firestore.collection("bookings")
+                .document(id)
+                .set(newBooking)
+                .await()
+
+            Result.success(Unit)
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    // --- Testimonials ---
+    // ---------------- TESTIMONIALS ----------------
+
     suspend fun getTestimonials(): Result<List<Testimonial>> {
-        delay(800)
-        // Mock a rich set of testimonials
-        val mockTestimonials = listOf(
-            Testimonial(
-                id = "1",
-                clientName = "Rajeshwari Agencies",
-                serviceType = "App Development",
-                feedback = "Nrikesari completely transformed our digital presence. Their design team is top-notch and the new app works flawlessly.",
-                rating = 5f
-            ),
-            Testimonial(
-                id = "2",
-                clientName = "Global Tech",
-                serviceType = "UI/UX Design",
-                feedback = "The attention to detail and user-centric approach is unparalleled. Our engagement metrics doubled after the redesign.",
-                rating = 5f
-            ),
-             Testimonial(
-                id = "3",
-                clientName = "Creative Studios",
-                serviceType = "Video Editing",
-                feedback = "Fast, reliable, and incredibly creative. They delivered exactly what we envisioned for our marketing campaign.",
-                rating = 4.5f
-            ),
-             Testimonial(
-                id = "4",
-                clientName = "Vertex Solutions",
-                serviceType = "Web Development",
-                feedback = "A seamless experience from start to finish. The team is professional, and the end product is extremely robust.",
-                rating = 5f
-            )
-        )
-        return Result.success(mockTestimonials)
+
+        return try {
+
+            val snapshot = firestore.collection("testimonials")
+                .get()
+                .await()
+
+            val list = snapshot.documents.mapNotNull {
+                it.toObject(Testimonial::class.java)
+            }
+
+            Result.success(list)
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    // --- Chat ---
+    // ---------------- CHAT ----------------
+
     suspend fun sendMessage(message: ChatMessage): Result<Unit> {
-        delay(500)
-        return Result.success(Unit)
+
+        return try {
+
+            val id = if (message.id.isBlank())
+                UUID.randomUUID().toString()
+            else message.id
+
+            val newMessage = message.copy(id = id)
+
+            firestore.collection("messages")
+                .document(id)
+                .set(newMessage)
+                .await()
+
+            Result.success(Unit)
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun getChatMessages(projectId: String): Result<List<ChatMessage>> {
-        delay(800)
-        // Return some basic mock messages
-        val msgs = listOf(
-            ChatMessage(
-                id = "1",
-                projectId = projectId,
-                senderId = "team",
-                text = "Hello! We've reviewed your inquiry. Can we schedule a quick call?",
-                timestamp = System.currentTimeMillis() - 86400000 // 1 day ago
-            ),
-             ChatMessage(
-                id = "2",
-                projectId = projectId,
-                senderId = "user", // simulating the user
-                text = "Yes, absolutely. Does tomorrow at 10 AM work?",
-                timestamp = System.currentTimeMillis() - 3600000 // 1 hour ago
-            )
-        )
-        return Result.success(msgs)
+
+        return try {
+
+            val snapshot = firestore.collection("messages")
+                .whereEqualTo("projectId", projectId)
+                .get()
+                .await()
+
+            val list = snapshot.documents
+                .mapNotNull { it.toObject(ChatMessage::class.java) }
+                .sortedBy { it.timestamp }
+
+            Result.success(list)
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
-    
+
+    // ---------------- FILE UPLOAD ----------------
+
     suspend fun uploadFile(uri: Uri, folder: String): Result<String> {
-        delay(1000)
-        return Result.success("https://mock-storage.com/${UUID.randomUUID()}")
+
+        return try {
+
+            val fileName = UUID.randomUUID().toString()
+
+            val ref = storage.reference
+                .child("$folder/$fileName")
+
+            ref.putFile(uri).await()
+
+            val url = ref.downloadUrl.await()
+
+            Result.success(url.toString())
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

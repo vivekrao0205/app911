@@ -15,11 +15,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavController
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import com.nrikesari.app.ui.components.CustomTextField
 import com.nrikesari.app.ui.components.PrimaryButton
 
@@ -27,6 +30,7 @@ import com.nrikesari.app.ui.components.PrimaryButton
 fun ContactScreen(navController: NavController) {
 
     val context = LocalContext.current
+    val firestore = FirebaseFirestore.getInstance()
 
     var name by remember { mutableStateOf("") }
     var company by remember { mutableStateOf("") }
@@ -34,68 +38,54 @@ fun ContactScreen(navController: NavController) {
     var phone by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
 
+    var isSending by remember { mutableStateOf(false) }
+    var successMessage by remember { mutableStateOf<String?>(null) }
+
     val scroll = rememberScrollState()
 
-    val isFormValid =
-        name.isNotBlank() &&
-                email.isNotBlank() &&
-                phone.isNotBlank() &&
-                description.isNotBlank()
-
-    fun sendWhatsApp() {
-
-        val message = """
-📩 *New Inquiry from Nrikesari App*
-
-👤 Name: $name
-🏢 Company: $company
-📧 Email: $email
-📱 Phone: $phone
-
-📝 Project Details:
-$description
-        """.trimIndent()
-
-        val url = "https://wa.me/916305313360?text=${Uri.encode(message)}"
+    fun openLink(url: String) {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-
-        name = ""
-        company = ""
-        email = ""
-        phone = ""
-        description = ""
     }
 
     fun callNow() {
-        context.startActivity(
-            Intent(Intent.ACTION_DIAL, Uri.parse("tel:+916305313360"))
-        )
+        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:+916305313360")))
     }
 
     fun sendEmail() {
-        context.startActivity(
-            Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:contact@nrikesari.in"))
-        )
+        context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:contact@nrikesari.in")))
     }
 
-    fun openWebsite() {
-        context.startActivity(
-            Intent(Intent.ACTION_VIEW, Uri.parse("https://nrikesari.in"))
-        )
-    }
+    fun submitInquiry() {
 
-    fun openMaps() {
-        val uri = Uri.parse("https://www.google.com/maps/@17.6364829,78.4860126,17.89z")
-        context.startActivity(Intent(Intent.ACTION_VIEW, uri))
-    }
+        isSending = true
 
-    fun openInstagram() {
-        context.startActivity(
-            Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse("https://instagram.com/nrikesari")
-            )
+        val data = hashMapOf(
+            "name" to name,
+            "company" to company,
+            "email" to email,
+            "phone" to phone,
+            "description" to description,
+            "timestamp" to FieldValue.serverTimestamp()
         )
+
+        firestore.collection("contact_inquiries")
+            .add(data)
+            .addOnSuccessListener {
+
+                isSending = false
+                successMessage = "success"
+
+                name = ""
+                company = ""
+                email = ""
+                phone = ""
+                description = ""
+            }
+            .addOnFailureListener {
+
+                isSending = false
+                successMessage = "error"
+            }
     }
 
     Column(
@@ -106,81 +96,140 @@ $description
             .padding(20.dp)
     ) {
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = "Contact Us",
+            "NRIKESARI",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
 
         Text(
-            text = "We'd love to hear about your project",
+            "We build modern websites, apps and digital products.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        /* -------- CONTACT OPTIONS -------- */
-
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            elevation = CardDefaults.cardElevation(0.dp),
-            border = BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.outlineVariant
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
 
-            Column {
+            DashboardItem(Icons.Default.Call,"Call"){ callNow() }
 
-                ContactRow(Icons.Default.Chat,"WhatsApp","+91 63053 13360"){ sendWhatsApp() }
+            DashboardItem(Icons.Default.Email,"Email"){ sendEmail() }
 
-                HorizontalDivider()
+            DashboardItem(Icons.Default.Language,"Website"){
+                openLink("https://nrikesari.in")
+            }
 
-                ContactRow(Icons.Default.Call,"Call","Talk directly with us"){ callNow() }
-
-                HorizontalDivider()
-
-                ContactRow(Icons.Default.Email,"Email","contact@nrikesari.in"){ sendEmail() }
-
-                HorizontalDivider()
-
-                ContactRow(Icons.Default.Language,"Website","nrikesari.in"){ openWebsite() }
-
-                HorizontalDivider()
-
-                ContactRow(Icons.Default.LocationOn,"Location","Open in Google Maps"){ openMaps() }
-
-                HorizontalDivider()
-
-                ContactRow(Icons.Default.CameraAlt,"Instagram","@nrikesari"){ openInstagram() }
+            DashboardItem(Icons.Default.CameraAlt,"Instagram"){
+                openLink("https://instagram.com/nrikesari")
             }
         }
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        /* -------- MESSAGE FORM -------- */
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ){
+
+            ContactRow(
+                Icons.Default.LocationOn,
+                "Our Location",
+                "Open in Google Maps"
+            ){
+                openLink("https://www.google.com/maps/@17.6364829,78.4860126,17z")
+            }
+
+        }
+
+        Spacer(modifier = Modifier.height(30.dp))
 
         Text(
-            text = "Send a Message",
+            "Dashboard",
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ){
+
+            Column(modifier = Modifier.padding(18.dp)) {
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ){
+
+                    Button(
+                        onClick = { navController.navigate("login") },
+                        modifier = Modifier.weight(1f)
+                    ){
+                        Icon(Icons.Default.Login,null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Login")
+                    }
+
+                    OutlinedButton(
+                        onClick = { navController.navigate("signup") },
+                        modifier = Modifier.weight(1f)
+                    ){
+                        Icon(Icons.Default.PersonAdd,null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Sign Up")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ){
+
+                    DashboardItem(Icons.Default.Event,"Book"){
+                        navController.navigate("book_call")
+                    }
+
+                    DashboardItem(Icons.Default.Star,"Review"){
+                        navController.navigate("write_review")
+                    }
+
+                    DashboardItem(Icons.Default.Work,"Projects"){
+                        navController.navigate("projects")
+                    }
+
+                    DashboardItem(Icons.Default.Settings,"Settings"){
+                        navController.navigate("settings")
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(30.dp))
+
+        Text(
+            "Send a Message",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
 
             CustomTextField(name,{name=it},"Name")
-
             CustomTextField(company,{company=it},"Company (Optional)")
-
             CustomTextField(email,{email=it},"Email")
-
             CustomTextField(phone,{phone=it},"Phone")
 
             CustomTextField(
@@ -191,18 +240,70 @@ $description
             )
 
             PrimaryButton(
-                text = "Submit Inquiry",
-                onClick = { sendWhatsApp() },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = isFormValid
+                text = if(isSending) "Sending..." else "Submit Inquiry",
+                onClick = { submitInquiry() },
+                modifier = Modifier.fillMaxWidth()
             )
+        }
+
+        Spacer(modifier = Modifier.height(30.dp))
+
+        successMessage?.let {
+
+            if(it == "success"){
+
+                Text(
+                    "Inquiry sent successfully!",
+                    color = Color(0xFF2E7D32),
+                    fontWeight = FontWeight.Medium
+                )
+
+            }else{
+
+                Text(
+                    "Failed to send inquiry",
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(40.dp))
     }
 }
 
-/* -------- CONTACT ROW -------- */
+@Composable
+fun DashboardItem(
+    icon: ImageVector,
+    text: String,
+    onClick: () -> Unit
+){
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ){
+
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ){
+
+            Icon(
+                icon,
+                null,
+                modifier = Modifier.padding(16.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium
+        )
+    }
+}
 
 @Composable
 fun ContactRow(
@@ -217,42 +318,24 @@ fun ContactRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(horizontal = 18.dp, vertical = 16.dp)
+            .padding(16.dp)
     ){
 
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-        ){
-            Icon(
-                icon,
-                contentDescription = null,
-                modifier = Modifier.padding(10.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
+        Icon(icon,null,tint = MaterialTheme.colorScheme.primary)
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)){
 
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+            Text(title, fontWeight = FontWeight.SemiBold)
 
             Text(
-                text = subtitle,
+                subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary
-        )
+        Icon(Icons.Default.ChevronRight,null)
     }
 }

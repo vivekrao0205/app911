@@ -29,60 +29,38 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.nrikesari.app.firebase.FirebaseService
 import com.nrikesari.app.model.ChatMessage
+import com.nrikesari.app.viewmodel.ChatViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(navController: NavController, projectId: String) {
-    val firebaseService = remember { FirebaseService() }
+fun ChatScreen(navController: NavController, projectId: String, chatViewModel: ChatViewModel = viewModel()) {
     val coroutineScope = rememberCoroutineScope()
-    val firestore = FirebaseFirestore.getInstance()
+    
+    val messages by chatViewModel.messages.collectAsState()
+    val isUploading by chatViewModel.isUploading.collectAsState()
 
-    var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var inputText by remember { mutableStateOf("") }
-    var isUploading by remember { mutableStateOf(false) }
-
     val listState = rememberLazyListState()
 
     // Real-time listener for messages
     DisposableEffect(projectId) {
-        val listener = firestore.collection("projects")
-            .document(projectId)
-            .collection("chats")
-            .orderBy("timestamp", Query.Direction.ASCENDING)
-            .addSnapshotListener { snapshot, _ ->
-                if (snapshot != null) {
-                    val newMessages = snapshot.toObjects(ChatMessage::class.java)
-                    messages = newMessages
-                    coroutineScope.launch {
-                        if (newMessages.isNotEmpty()) {
-                            listState.animateScrollToItem(newMessages.size - 1)
-                        }
-                    }
-                }
-            }
-        onDispose { listener.remove() }
+        chatViewModel.startListening(projectId)
+        onDispose { chatViewModel.stopListening() }
+    }
+    
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
     }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
-            isUploading = true
-            coroutineScope.launch {
-                val uploadResult = firebaseService.uploadFile(uri, "chat_attachments/$projectId")
-                if (uploadResult.isSuccess) {
-                    val downloadUrl = uploadResult.getOrThrow()
-                    val chatMessage = ChatMessage(
-                        projectId = projectId,
-                        senderId = firebaseService.currentUser?.uid ?: "",
-                        text = "Sent an attachment",
-                        attachmentUrl = downloadUrl
-                    )
-                    firebaseService.sendMessage(chatMessage)
-                }
-                isUploading = false
-            }
+            chatViewModel.uploadAttachment(projectId, uri)
         }
     }
 
@@ -118,7 +96,7 @@ fun ChatScreen(navController: NavController, projectId: String) {
                 contentPadding = PaddingValues(vertical = 16.dp)
             ) {
                 items(messages) { message ->
-                    val isMine = message.senderId == firebaseService.currentUser?.uid
+                    val isMine = message.senderId == chatViewModel.currentUserId
                     MessageBubble(message = message, isMine = isMine)
                 }
             }
@@ -164,15 +142,8 @@ fun ChatScreen(navController: NavController, projectId: String) {
                     IconButton(
                         onClick = {
                             if (inputText.isNotBlank()) {
-                                val message = ChatMessage(
-                                    projectId = projectId,
-                                    senderId = firebaseService.currentUser?.uid ?: "",
-                                    text = inputText.trim()
-                                )
+                                chatViewModel.sendMessage(projectId, inputText.trim())
                                 inputText = ""
-                                coroutineScope.launch {
-                                    firebaseService.sendMessage(message)
-                                }
                             }
                         },
                         modifier = Modifier

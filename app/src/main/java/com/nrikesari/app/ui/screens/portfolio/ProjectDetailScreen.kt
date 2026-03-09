@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -18,12 +19,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.nrikesari.app.model.PortfolioProject
+import com.nrikesari.app.viewmodel.AuthViewModel
+import com.nrikesari.app.navigation.Screen
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ProjectDetailScreen(
     navController: NavController,
-    project: PortfolioProject
+    project: PortfolioProject,
+    authViewModel: AuthViewModel
 ) {
 
     val scrollState = rememberScrollState()
@@ -46,6 +50,21 @@ fun ProjectDetailScreen(
                     containerColor = MaterialTheme.colorScheme.background
                 )
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { 
+                    if (authViewModel.currentUserProfile.value != null) {
+                        navController.navigate("chat/${project.id}")
+                    } else {
+                        navController.navigate(Screen.Login.route)
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(Icons.Filled.Chat, contentDescription = "Chat with us")
+            }
         }
     ) { padding ->
 

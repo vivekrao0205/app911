@@ -18,16 +18,20 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.nrikesari.app.firebase.FirebaseService
+import com.nrikesari.app.viewmodel.AuthViewModel
+import com.nrikesari.app.viewmodel.UserViewModel
+import com.nrikesari.app.viewmodel.SubmissionState
 import com.nrikesari.app.model.ProjectInquiry
 import kotlinx.coroutines.launch
 
 @Composable
-fun ProjectEnquiryScreen() {
+fun ProjectEnquiryScreen(authViewModel: AuthViewModel, userViewModel: UserViewModel) {
 
     val context = LocalContext.current
-    val firebaseService = remember { FirebaseService() }
     val coroutineScope = rememberCoroutineScope()
+    
+    val currentUserProfile by authViewModel.currentUserProfile.collectAsState()
+    val submissionState by userViewModel.submissionState.collectAsState()
 
     var name by remember { mutableStateOf("") }
     var contact by remember { mutableStateOf("") }
@@ -43,9 +47,20 @@ fun ProjectEnquiryScreen() {
         "App Dev"
     )
     
-    var isSubmitting by remember { mutableStateOf(false) }
-    var submitSuccess by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    
+    val isSubmitting = submissionState is SubmissionState.Submitting
+    val submitSuccess = submissionState is SubmissionState.Success
+    
+    LaunchedEffect(submissionState) {
+        if (submissionState is SubmissionState.Success) {
+            name = ""
+            contact = ""
+            description = ""
+        } else if (submissionState is SubmissionState.Error) {
+            errorMessage = (submissionState as SubmissionState.Error).message
+        }
+    }
 
     /* -------- Animated Background -------- */
 
@@ -167,7 +182,7 @@ fun ProjectEnquiryScreen() {
 
         Button(
             onClick = {
-                val userId = firebaseService.currentUser?.uid
+                val userId = currentUserProfile?.uid
                 if (userId == null) {
                     errorMessage = "Please login from Settings to submit a project."
                     return@Button
@@ -178,7 +193,6 @@ fun ProjectEnquiryScreen() {
                     return@Button
                 }
                 
-                isSubmitting = true
                 errorMessage = null
                 
                 val inquiry = ProjectInquiry(
@@ -189,18 +203,7 @@ fun ProjectEnquiryScreen() {
                     description = description.trim()
                 )
                 
-                coroutineScope.launch {
-                    val result = firebaseService.submitProjectInquiry(inquiry)
-                    isSubmitting = false
-                    if (result.isSuccess) {
-                        submitSuccess = true
-                        name = ""
-                        contact = ""
-                        description = ""
-                    } else {
-                        errorMessage = "Submission failed. Try again."
-                    }
-                }
+                userViewModel.submitProjectEnquiry(inquiry)
             },
             modifier = Modifier
                 .fillMaxWidth()

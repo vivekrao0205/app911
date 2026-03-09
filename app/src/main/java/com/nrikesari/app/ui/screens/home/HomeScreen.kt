@@ -1,10 +1,8 @@
 package com.nrikesari.app.ui.screens.home
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -15,38 +13,29 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.Work
-import androidx.compose.material.icons.filled.FormatQuote
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.*
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.*
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.nrikesari.app.R
 import com.nrikesari.app.navigation.Screen
 import com.nrikesari.app.firebase.FirebaseService
 import com.nrikesari.app.model.Testimonial
+import com.nrikesari.app.viewmodel.UserViewModel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(navController: NavController, userViewModel: UserViewModel) {
 
     val scrollState = rememberScrollState()
 
@@ -80,22 +69,23 @@ fun HomeScreen(navController: NavController) {
                 text = "Nrikesari is a creative digital agency building modern brands, applications and digital experiences.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+                modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(36.dp))
 
             ActionButtons(navController)
+
+            Spacer(modifier = Modifier.height(40.dp))
 
             StatsSection()
 
             Spacer(modifier = Modifier.height(60.dp))
 
-            TestimonialSection()
+            TestimonialSection(navController)
 
-            Spacer(modifier = Modifier.height(60.dp))
-
-            Spacer(modifier = Modifier.height(60.dp))
+            Spacer(modifier = Modifier.height(80.dp))
         }
     }
 }
@@ -113,8 +103,7 @@ fun PremiumBackground() {
         animationSpec = infiniteRepeatable(
             tween(4000),
             RepeatMode.Reverse
-        ),
-        label = "glow"
+        ), label = ""
     )
 
     val alpha by transition.animateFloat(
@@ -123,8 +112,7 @@ fun PremiumBackground() {
         animationSpec = infiniteRepeatable(
             tween(4000),
             RepeatMode.Reverse
-        ),
-        label = "alpha"
+        ), label = ""
     )
 
     Box(
@@ -135,7 +123,7 @@ fun PremiumBackground() {
             .blur(120.dp)
             .background(
                 Brush.radialGradient(
-                    colors = listOf(
+                    listOf(
                         MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
                         Color.Transparent
                     )
@@ -176,7 +164,7 @@ fun AnimatedLogo() {
                 painter = painterResource(R.mipmap.ic_launcher_foreground),
                 contentDescription = "Logo",
                 modifier = Modifier
-                    .size(180.dp)
+                    .size(160.dp)
                     .clip(CircleShape),
                 contentScale = ContentScale.Crop
             )
@@ -308,113 +296,106 @@ fun StatItem(icon: ImageVector, value: String, label: String) {
         )
     }
 }
-
 /* ---------------- TESTIMONIALS ---------------- */
 
 @Composable
-fun TestimonialSection() {
-    val firebaseService = remember { FirebaseService() }
-    var testimonials by remember { mutableStateOf<List<Testimonial>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-
-    LaunchedEffect(Unit) {
-        val result = firebaseService.getTestimonials()
-        if (result.isSuccess) {
-            testimonials = result.getOrDefault(emptyList())
-        }
-        isLoading = false
-    }
+fun TestimonialSection(navController: NavController) {
 
     Column(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+
         Text(
             text = "Client Feedback",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
+            color = MaterialTheme.colorScheme.primary
         )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-        } else if (testimonials.isEmpty()) {
-             Text(
-                "No reviews available yet.",
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-            )
-        } else {
-             LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp)
-            ) {
-                items(testimonials) { testimonial ->
-                    TestimonialCard(testimonial)
-                }
-            }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedButton(
+            onClick = { navController.navigate(Screen.WriteReview.route) },
+            modifier = Modifier.padding(bottom = 24.dp)
+        ) {
+            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Write a Review")
         }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text(
+            "No reviews yet.",
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+        )
     }
 }
 
+/* ---------------- TESTIMONIAL CARD ---------------- */
+
 @Composable
 fun TestimonialCard(testimonial: Testimonial) {
+
     Card(
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(2.dp),
+        elevation = CardDefaults.cardElevation(0.dp), // removed shadow
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.width(300.dp)
     ) {
+
         Column(modifier = Modifier.padding(20.dp)) {
+
             Icon(
-                Icons.Default.FormatQuote, 
+                Icons.Default.FormatQuote,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                 modifier = Modifier.size(32.dp)
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = testimonial.feedback,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                minLines = 3,
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+
                 Column(modifier = Modifier.weight(1f)) {
+
                     Text(
-                        text = testimonial.clientName,
+                        testimonial.clientName,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+
                     Text(
-                        text = testimonial.serviceType,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        testimonial.serviceType,
+                        style = MaterialTheme.typography.labelSmall
                     )
                 }
-                
+
                 Row {
-                    val fullStars = testimonial.rating.toInt()
-                    // Simplistic star rendering
-                    repeat(fullStars) {
-                        Icon(Icons.Default.Star, contentDescription = "Star", tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp))
+
+                    repeat(testimonial.rating.toInt()) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = null,
+                            tint = Color(0xFFFFC107),
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
             }

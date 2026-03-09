@@ -1,6 +1,8 @@
 package com.nrikesari.app.model
 
-// User Model
+
+// ---------------- USER MODEL ----------------
+
 data class User(
     val uid: String = "",
     val name: String = "",
@@ -14,7 +16,8 @@ data class User(
 }
 
 
-// Project Inquiry Model
+// ---------------- PROJECT INQUIRY MODEL ----------------
+
 data class ProjectInquiry(
     val id: String = "",
     val userId: String = "",
@@ -22,17 +25,18 @@ data class ProjectInquiry(
     val contact: String = "",
     val service: String = "",
     val description: String = "",
-    val status: String = "Inquiry Received", // Inquiry Received, Project Discussion, In Progress, Review, Completed
+    val status: String = "Inquiry Received",
     val submittedAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )
 
 
-// Chat Message Model
+// ---------------- CHAT MESSAGE MODEL ----------------
+
 data class ChatMessage(
     val id: String = "",
     val projectId: String = "",
-    val senderId: String = "", // userId or "team"
+    val senderId: String = "",
     val text: String = "",
     val attachmentUrl: String = "",
     val timestamp: Long = System.currentTimeMillis(),
@@ -40,7 +44,8 @@ data class ChatMessage(
 )
 
 
-// Booking Model
+// ---------------- BOOKING MODEL ----------------
+
 data class Booking(
     val id: String = "",
     val userId: String = "",
@@ -54,12 +59,14 @@ data class Booking(
 )
 
 
-// Testimonial Model
+// ---------------- TESTIMONIAL / REVIEW MODEL ----------------
+
 data class Testimonial(
     val id: String = "",
     val clientName: String = "",
     val serviceType: String = "",
     val feedback: String = "",
     val rating: Float = 5f,
-    val avatarUrl: String = ""
+    val avatarUrl: String = "",
+    val timestamp: Long = System.currentTimeMillis() // important for realtime sorting
 )

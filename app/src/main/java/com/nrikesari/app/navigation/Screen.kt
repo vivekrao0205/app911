@@ -29,6 +29,7 @@ sealed class Screen(val route: String) {
     object ProjectEnquiry : Screen("project_enquiry")
     object MyProjects : Screen("my_projects")
     object BookCall : Screen("book_call")
+    object WriteReview : Screen("write_review")
 
     object ProjectDetail : Screen("project_detail/{projectId}") {
 

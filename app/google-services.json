@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "283024976713",
+    "project_id": "app-af1967d3",
+    "storage_bucket": "app-af1967d3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:283024976713:android:532f69bc68570d6ca54898",
+        "android_client_info": {
+          "package_name": "com.nrikesari.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAp93tFfz2YEWAI7z-OAjOFA8SL1lIgy4w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

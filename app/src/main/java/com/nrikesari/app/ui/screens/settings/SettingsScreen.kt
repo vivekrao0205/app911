@@ -3,12 +3,13 @@ package com.nrikesari.app.ui.screens.settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -17,36 +18,31 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.nrikesari.app.model.PreferencesManager
-import com.nrikesari.app.model.User
-import com.nrikesari.app.firebase.FirebaseService
+import com.nrikesari.app.viewmodel.AuthViewModel
 import com.nrikesari.app.navigation.Screen
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(navController: NavController) {
+fun SettingsScreen(
+    navController: NavController,
+    authViewModel: AuthViewModel
+) {
 
     val context = LocalContext.current
     val preferencesManager = remember { PreferencesManager(context) }
-    val isDarkMode by preferencesManager.darkModeFlow.collectAsState(initial = true)
 
+    val isDarkMode by preferencesManager.darkModeFlow.collectAsState(initial = true)
     val coroutineScope = rememberCoroutineScope()
-    val firebaseService = remember { FirebaseService() }
-    
-    var currentUserProfile by remember { mutableStateOf<User?>(null) }
-    
-    LaunchedEffect(firebaseService.currentUser) {
-        val uid = firebaseService.currentUser?.uid
-        if (uid != null) {
-            val result = firebaseService.getUserProfile(uid)
-            currentUserProfile = result.getOrNull()
-        } else {
-            currentUserProfile = null
-        }
-    }
+
+    val currentUserProfile by authViewModel.currentUserProfile.collectAsState()
+
+    var notificationsEnabled by remember { mutableStateOf(true) }
+    var promoEnabled by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
     ) {
 
@@ -68,40 +64,50 @@ fun SettingsScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        if (currentUserProfile != null) {
+        // =====================
+        // USER DASHBOARD
+        // =====================
+
+        currentUserProfile?.let { user ->
+
             SectionTitle("Dashboard")
+
             SettingsCard {
+
                 SettingsItem(
                     icon = Icons.Default.AccountCircle,
-                    title = currentUserProfile!!.name,
-                    subtitle = currentUserProfile!!.email,
+                    title = user.name,
+                    subtitle = user.email,
                     trailing = {
                         Text(
-                            "Logout", 
+                            "Logout",
                             color = MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.clickable {
-                                firebaseService.logout()
-                                currentUserProfile = null
+                                authViewModel.logout()
+
+                                navController.navigate(Screen.Login.route) {
+                                    popUpTo(0)
+                                }
                             }
                         )
                     }
                 )
-                
-                HorizontalDivider(thickness = 0.6.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                
+
+                HorizontalDivider()
+
                 SettingsItem(
                     icon = Icons.Default.Workspaces,
                     title = "My Projects",
                     subtitle = "View your project status",
                     trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
                     onClick = {
-                        navController.navigate("my_projects") 
+                        navController.navigate(Screen.MyProjects.route)
                     }
                 )
-                
-                HorizontalDivider(thickness = 0.6.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                
+
+                HorizontalDivider()
+
                 SettingsItem(
                     icon = Icons.Default.Event,
                     title = "Book a Call",
@@ -112,8 +118,11 @@ fun SettingsScreen(navController: NavController) {
                     }
                 )
             }
-        } else {
+
+        } ?: run {
+
             SettingsCard {
+
                 SettingsItem(
                     icon = Icons.Default.Login,
                     title = "Login / Sign Up",
@@ -128,6 +137,10 @@ fun SettingsScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(28.dp))
 
+        // =====================
+        // APPEARANCE
+        // =====================
+
         SectionTitle("Appearance")
 
         SettingsCard {
@@ -139,31 +152,30 @@ fun SettingsScreen(navController: NavController) {
                 trailing = {
                     Switch(
                         checked = isDarkMode,
-                        onCheckedChange = { enabled ->
+                        onCheckedChange = {
                             coroutineScope.launch {
-                                preferencesManager.setDarkMode(enabled)
+                                preferencesManager.setDarkMode(it)
                             }
                         }
                     )
                 }
             )
 
-            HorizontalDivider(
-                thickness = 0.6.dp,
-                color = MaterialTheme.colorScheme.outlineVariant
-            )
+            HorizontalDivider()
 
             SettingsItem(
                 icon = Icons.Default.ColorLens,
                 title = "Theme Color",
                 subtitle = "Customize accent color",
-                trailing = {
-                    Icon(Icons.Default.ArrowForwardIos, null)
-                }
+                trailing = { Icon(Icons.Default.ArrowForwardIos, null) }
             )
         }
 
         Spacer(modifier = Modifier.height(22.dp))
+
+        // =====================
+        // NOTIFICATIONS
+        // =====================
 
         SectionTitle("Notifications")
 
@@ -175,16 +187,13 @@ fun SettingsScreen(navController: NavController) {
                 subtitle = "Receive updates and alerts",
                 trailing = {
                     Switch(
-                        checked = true,
-                        onCheckedChange = {}
+                        checked = notificationsEnabled,
+                        onCheckedChange = { notificationsEnabled = it }
                     )
                 }
             )
 
-            HorizontalDivider(
-                thickness = 0.6.dp,
-                color = MaterialTheme.colorScheme.outlineVariant
-            )
+            HorizontalDivider()
 
             SettingsItem(
                 icon = Icons.Default.NotificationsActive,
@@ -192,14 +201,18 @@ fun SettingsScreen(navController: NavController) {
                 subtitle = "Offers & announcements",
                 trailing = {
                     Switch(
-                        checked = false,
-                        onCheckedChange = {}
+                        checked = promoEnabled,
+                        onCheckedChange = { promoEnabled = it }
                     )
                 }
             )
         }
 
         Spacer(modifier = Modifier.height(22.dp))
+
+        // =====================
+        // APPLICATION
+        // =====================
 
         SectionTitle("Application")
 
@@ -209,37 +222,25 @@ fun SettingsScreen(navController: NavController) {
                 icon = Icons.Default.Info,
                 title = "About App",
                 subtitle = "Version 1.0.0",
-                trailing = {
-                    Icon(Icons.Default.ArrowForwardIos, null)
-                }
+                trailing = { Icon(Icons.Default.ArrowForwardIos, null) }
             )
 
-            HorizontalDivider(
-                thickness = 0.6.dp,
-                color = MaterialTheme.colorScheme.outlineVariant
-            )
+            HorizontalDivider()
 
             SettingsItem(
                 icon = Icons.Default.PrivacyTip,
                 title = "Privacy Policy",
                 subtitle = "View privacy policy",
-                trailing = {
-                    Icon(Icons.Default.ArrowForwardIos, null)
-                }
+                trailing = { Icon(Icons.Default.ArrowForwardIos, null) }
             )
 
-            HorizontalDivider(
-                thickness = 0.6.dp,
-                color = MaterialTheme.colorScheme.outlineVariant
-            )
+            HorizontalDivider()
 
             SettingsItem(
                 icon = Icons.Default.SupportAgent,
                 title = "Support",
                 subtitle = "Contact support team",
-                trailing = {
-                    Icon(Icons.Default.ArrowForwardIos, null)
-                }
+                trailing = { Icon(Icons.Default.ArrowForwardIos, null) }
             )
         }
 
@@ -256,6 +257,8 @@ fun SettingsScreen(navController: NavController) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
         )
+
+        Spacer(modifier = Modifier.height(30.dp))
     }
 }
 

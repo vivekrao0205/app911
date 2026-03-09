@@ -16,26 +16,28 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.nrikesari.app.firebase.FirebaseService
+import com.nrikesari.app.viewmodel.AuthViewModel
+import com.nrikesari.app.viewmodel.UserViewModel
+import com.nrikesari.app.viewmodel.UserProjectsState
 import com.nrikesari.app.model.ProjectInquiry
 import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MyProjectsScreen(navController: NavController) {
-    val firebaseService = remember { FirebaseService() }
-    var projects by remember { mutableStateOf<List<ProjectInquiry>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+fun MyProjectsScreen(navController: NavController, authViewModel: AuthViewModel, userViewModel: UserViewModel) {
+    val currentUserProfile by authViewModel.currentUserProfile.collectAsState()
+    val projectsState by userViewModel.projectsState.collectAsState()
 
-    LaunchedEffect(Unit) {
-        val uid = firebaseService.currentUser?.uid
+    LaunchedEffect(currentUserProfile?.uid) {
+        val uid = currentUserProfile?.uid
         if (uid != null) {
-            val result = firebaseService.getUserProjects(uid)
-            projects = result.getOrDefault(emptyList())
+            userViewModel.fetchUserProjects(uid)
         }
-        isLoading = false
     }
+    
+    val isLoading = projectsState is UserProjectsState.Loading
+    val projects = (projectsState as? UserProjectsState.Success)?.projects ?: emptyList()
 
     Scaffold(
         topBar = {
