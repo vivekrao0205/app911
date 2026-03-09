@@ -1,189 +1,297 @@
 package com.nrikesari.app.ui.screens.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.core.*
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.*
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.nrikesari.app.R
 import com.nrikesari.app.navigation.Screen
+import kotlinx.coroutines.delay
 
 @Composable
 fun HomeScreen(navController: NavController) {
 
     val scrollState = rememberScrollState()
-    val colorScheme = MaterialTheme.colorScheme
 
-    val transition = rememberInfiniteTransition()
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
 
-    val offsetX by transition.animateFloat(
-        initialValue = -300f,
-        targetValue = 300f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        )
-    )
+        PremiumBackground()
 
-    val offsetY by transition.animateFloat(
-        initialValue = -200f,
-        targetValue = 400f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(15000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        )
-    )
-
-    Box(modifier = Modifier.fillMaxSize()) {
-
-        //  Adaptive Background
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(colorScheme.background)
-        )
-
-        // Jelly Blob 1 (theme-based)
-        Box(
-            modifier = Modifier
-                .offset(x = offsetX.dp, y = offsetY.dp)
-                .size(300.dp)
-                .blur(150.dp)
-                .background(
-                    colorScheme.primary.copy(alpha = 0.15f),
-                    shape = CircleShape
-                )
-        )
-
-        // Jelly Blob 2
-        Box(
-            modifier = Modifier
-                .offset(x = (-offsetX).dp, y = (offsetY / 2).dp)
-                .size(250.dp)
-                .blur(150.dp)
-                .background(
-                    colorScheme.secondary.copy(alpha = 0.18f),
-                    shape = CircleShape
-                )
-        )
-
-        //  Glass  Layer
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
-                .background(
-                    colorScheme.surface.copy(alpha = 0.6f)
-                )
-                .padding(24.dp),
+                .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
             Spacer(modifier = Modifier.height(60.dp))
 
-            Box(
-                modifier = Modifier
-                    .size(160.dp)
-                    .clip(CircleShape)
-                    .background(
-                        colorScheme.surface.copy(alpha = 0.8f)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.mipmap.ic_launcher_foreground),
-                    contentDescription = "Nrikesari Logo",
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
-            }
+            AnimatedLogo()
 
-            Spacer(modifier = Modifier.height(50.dp))
+            Spacer(modifier = Modifier.height(30.dp))
 
-            //  Highlighted Hero Text
-            Text(
-                buildAnnotatedString {
-                    append("We Build ")
-                    withStyle(
-                        style = SpanStyle(
-                            color = colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    ) { append("Brands") }
+            AnimatedHeroText()
 
-                    append(".\nWe Create ")
-
-                    withStyle(
-                        style = SpanStyle(
-                            color = colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    ) { append("Digital Experiences") }
-                },
-                style = MaterialTheme.typography.headlineLarge,
-                textAlign = TextAlign.Center,
-                color = colorScheme.onBackground
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Nrikesari is a creative digital agency specializing in branding, digital experiences, technology, and performance marketing.",
+                text = "Nrikesari is a creative digital agency building modern brands, applications and digital experiences.",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
-                color = colorScheme.onBackground.copy(alpha = 0.8f)
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
             )
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            Button(
-                onClick = { navController.navigate(Screen.Contact.route) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colorScheme.primary
-                )
-            ) {
-                Text("Start a Project")
-            }
+            ActionButtons(navController)
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(40.dp))
 
-            OutlinedButton(
-                onClick = { navController.navigate(Screen.Services.route) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("View Services")
-            }
+            StatsSection()
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedButton(
-                onClick = { navController.navigate(Screen.Portfolio.route) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("View Portfolio")
-            }
-
-            Spacer(modifier = Modifier.height(50.dp))
+            Spacer(modifier = Modifier.height(60.dp))
         }
+    }
+}
+
+/* ---------------- PREMIUM BACKGROUND ---------------- */
+
+@Composable
+fun PremiumBackground() {
+
+    val transition = rememberInfiniteTransition(label = "bg")
+
+    val glowScale by transition.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.2f,
+        animationSpec = infiniteRepeatable(
+            tween(4000),
+            RepeatMode.Reverse
+        ),
+        label = "glow"
+    )
+
+    val alpha by transition.animateFloat(
+        initialValue = 0.08f,
+        targetValue = 0.16f,
+        animationSpec = infiniteRepeatable(
+            tween(4000),
+            RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .scale(glowScale)
+            .alpha(alpha)
+            .blur(120.dp)
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                        Color.Transparent
+                    )
+                )
+            )
+    )
+}
+
+/* ---------------- LOGO ---------------- */
+
+@Composable
+fun AnimatedLogo() {
+
+    var visible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        delay(200)
+        visible = true
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn() + scaleIn(initialScale = 0.8f)
+    ) {
+
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(160.dp)
+        ) {
+
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            ) {}
+
+            Image(
+                painter = painterResource(R.mipmap.ic_launcher_foreground),
+                contentDescription = "Logo",
+                modifier = Modifier
+                    .size(180.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+        }
+    }
+}
+
+/* ---------------- HERO TEXT ---------------- */
+
+@Composable
+fun AnimatedHeroText() {
+
+    var visible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        delay(350)
+        visible = true
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn() + slideInVertically { 60 }
+    ) {
+
+        Text(
+            buildAnnotatedString {
+
+                append("We Build ")
+
+                withStyle(
+                    SpanStyle(
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                ) { append("Brands") }
+
+                append("\nWe Create ")
+
+                withStyle(
+                    SpanStyle(
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                ) { append("Digital Experiences") }
+            },
+            style = MaterialTheme.typography.headlineLarge,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+/* ---------------- BUTTONS ---------------- */
+
+@Composable
+fun ActionButtons(navController: NavController) {
+
+    Button(
+        onClick = { navController.navigate(Screen.Contact.route) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+    ) {
+        Text("Start a Project", fontWeight = FontWeight.Bold)
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    OutlinedButton(
+        onClick = { navController.navigate(Screen.Services.route) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+    ) {
+        Text("View Services")
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    OutlinedButton(
+        onClick = { navController.navigate(Screen.Portfolio.route) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+    ) {
+        Text("View Portfolio")
+    }
+}
+
+/* ---------------- STATS ---------------- */
+
+@Composable
+fun StatsSection() {
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+
+        StatItem(Icons.Default.Work,"10+","Projects")
+        StatItem(Icons.Default.Groups,"20+","Clients")
+        StatItem(Icons.Default.Timeline,">1","Years")
+    }
+}
+
+@Composable
+fun StatItem(icon: ImageVector, value: String, label: String) {
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        )
     }
 }

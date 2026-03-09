@@ -2,23 +2,21 @@ package com.nrikesari.app.ui.screens.projects
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-
-private val Ivory = Color(0xFFF2EDEA)
-private val Maroon = Color(0xFF8B2C2C)
 
 @Composable
 fun ProjectEnquiryScreen() {
@@ -28,57 +26,72 @@ fun ProjectEnquiryScreen() {
     var name by remember { mutableStateOf("") }
     var contact by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var selectedService by remember { mutableStateOf("") }
-    var complexity by remember { mutableStateOf(0.5f) }
+    var service by remember { mutableStateOf("Video Editing") }
 
     val services = listOf(
         "Video Editing",
         "3D / VFX",
         "Graphic Design",
-        "UI/UX Design",
-        "Web Development",
-        "App Development",
-        "Digital Marketing"
+        "UI/UX",
+        "Web Dev",
+        "App Dev"
+    )
+
+    /* -------- Animated Background -------- */
+
+    val infiniteTransition = rememberInfiniteTransition(label = "")
+
+    val colorShift by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(12000, easing = LinearEasing)
+        ),
+        label = ""
+    )
+
+    val background = Brush.linearGradient(
+        colors = listOf(
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.05f)
+        )
     )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Ivory)
+            .background(background)
             .verticalScroll(rememberScrollState())
-            .padding(24.dp)
+            .padding(20.dp)
     ) {
 
         Text(
             "Start a Project",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = Maroon
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        // ---------------- CONTACT INFO ----------------
+        /* -------- FORM -------- */
 
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
-            label = { Text("Your Name") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            label = { Text("Name") },
+            modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
             value = contact,
             onValueChange = { contact = it },
-            label = { Text("Phone or Email") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            label = { Text("Phone / Email") },
+            modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
             value = description,
@@ -86,123 +99,72 @@ fun ProjectEnquiryScreen() {
             label = { Text("Project Description") },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(130.dp),
-            maxLines = 5
+                .height(120.dp)
         )
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        // ---------------- SERVICE SELECTION ----------------
+        /* -------- SERVICE SELECT -------- */
 
         Text(
-            "Select Service",
-            fontWeight = FontWeight.SemiBold,
-            color = Maroon
+            "Service",
+            fontWeight = FontWeight.SemiBold
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        services.forEach { service ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp)
-                    .clickable { selectedService = service },
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(4.dp)
+        services.forEach {
+
+            Row(
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = service,
-                        modifier = Modifier.weight(1f)
-                    )
 
-                    RadioButton(
-                        selected = selectedService == service,
-                        onClick = { selectedService = service },
-                        colors = RadioButtonDefaults.colors(
-                            selectedColor = Maroon
-                        )
-                    )
-                }
+                RadioButton(
+                    selected = service == it,
+                    onClick = { service = it }
+                )
+
+                Text(it)
             }
         }
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        // ---------------- COMPLEXITY ----------------
-
-        Text(
-            "Project Complexity",
-            fontWeight = FontWeight.SemiBold,
-            color = Maroon
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Slider(
-            value = complexity,
-            onValueChange = { complexity = it },
-            colors = SliderDefaults.colors(
-                thumbColor = Maroon,
-                activeTrackColor = Maroon
-            )
-        )
-
-        Text(
-            when {
-                complexity < 0.33f -> "Basic"
-                complexity < 0.66f -> "Standard"
-                else -> "Enterprise"
-            },
-            color = Maroon,
-            fontWeight = FontWeight.Medium
-        )
-
-        Spacer(modifier = Modifier.height(40.dp))
-
-        // ---------------- SEND BUTTON ----------------
+        /* -------- SEND -------- */
 
         Button(
             onClick = {
 
-                val complexityText = when {
-                    complexity < 0.33f -> "Basic"
-                    complexity < 0.66f -> "Standard"
-                    else -> "Enterprise"
-                }
-
                 val message = """
-🔥 New Project Inquiry - Nrikesari
+New Project Inquiry - Nrikesari
 
-👤 Name: $name
-📞 Contact: $contact
-🎯 Service: $selectedService
-📊 Complexity: $complexityText
+Name: $name
+Contact: $contact
+Service: $service
 
-📝 Description:
+Description:
 $description
                 """.trimIndent()
 
                 val url = "https://wa.me/916305313360?text=${Uri.encode(message)}"
 
-                val intent = Intent(Intent.ACTION_VIEW)
-                intent.data = Uri.parse(url)
-                context.startActivity(intent)
+                context.startActivity(
+                    Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                )
             },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(55.dp),
-            shape = RoundedCornerShape(30.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Maroon)
+            shape = RoundedCornerShape(30.dp)
         ) {
-            Text("Send via WhatsApp", color = Color.White)
+
+            Icon(Icons.Default.Send, null)
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text("Send Inquiry")
         }
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(40.dp))
     }
 }

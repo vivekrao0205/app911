@@ -21,9 +21,9 @@ val LightOnSurface = DarkCharcoal
 
 /* DARK THEME */
 
-val DarkBackground = Color(0xFF141312)
-val DarkSurface = Color(0xFF1C1A19)
-val DarkSurfaceElevated = Color(0xFF242220)
+val DarkBackground = Color(0xFF0F0E0D)
+val DarkSurface = Color(0xFF1A1817)
+val DarkSurfaceElevated = Color(0xFF23211F)
 
 val DarkPrimary = DeepMaroon
 val DarkOnPrimary = PureWhite

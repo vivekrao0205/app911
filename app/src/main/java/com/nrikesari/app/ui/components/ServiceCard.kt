@@ -1,22 +1,14 @@
 package com.nrikesari.app.ui.components
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeveloperMode
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nrikesari.app.model.Service
@@ -27,42 +19,112 @@ fun ServiceCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+
+    val colorScheme = MaterialTheme.colorScheme
+    val icon = getServiceIcon(service.id)
+
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+        modifier = modifier.fillMaxWidth(),
+        onClick = onClick,
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(
+            1.dp,
+            colorScheme.outlineVariant
         )
     ) {
-        Column(
+
+        Row(
             modifier = Modifier
                 .padding(16.dp)
                 .fillMaxWidth()
         ) {
-            // Placeholder Icon
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = colorScheme.primary.copy(alpha = 0.08f)
+            ) {
+
+                Icon(
+                    imageVector = icon,
+                    contentDescription = service.title,
+                    tint = colorScheme.primary,
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .size(26.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+
+                Text(
+                    text = service.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = service.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onSurfaceVariant
+                )
+            }
+
             Icon(
-                imageVector = Icons.Default.DeveloperMode,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(48.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = service.title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = service.description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                imageVector = Icons.Default.ArrowForwardIos,
+                contentDescription = "Open service",
+                tint = colorScheme.primary,
+                modifier = Modifier.size(18.dp)
             )
         }
+    }
+}
+
+/* -------- ICON MAPPER -------- */
+
+fun getServiceIcon(id: String): ImageVector {
+
+    val normalized = id.trim().lowercase()
+
+    return when (normalized) {
+
+        "video_editing", "video editing" ->
+            Icons.Default.VideoLibrary
+
+        "vfx" ->
+            Icons.Default.AutoFixHigh
+
+        "graphic_design", "graphic design" ->
+            Icons.Default.Brush
+
+        "uiux", "ui/ux" ->
+            Icons.Default.DesignServices
+
+        "web_dev", "web development" ->
+            Icons.Default.Language
+
+        "app_dev", "app development" ->
+            Icons.Default.PhoneAndroid
+
+        "digital_marketing", "digital marketing" ->
+            Icons.Default.Campaign
+
+        "branding" ->
+            Icons.Default.Business
+
+        "motion_graphics", "motion graphics" ->
+            Icons.Default.Movie
+
+        "content_creation", "content creation" ->
+            Icons.Default.EditNote
+
+        else ->
+            Icons.Default.Build
     }
 }
