@@ -49,7 +49,7 @@ fun ServicesScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        /* -------- SERVICES LIST -------- */
+        /* ------- SERVICES LIST ------- */
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
