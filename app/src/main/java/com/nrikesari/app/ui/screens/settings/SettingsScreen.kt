@@ -37,6 +37,8 @@ fun SettingsScreen(
     val preferencesManager = remember { PreferencesManager(context) }
 
     val isDarkMode by preferencesManager.darkModeFlow.collectAsState(initial = true)
+    val selectedTheme by preferencesManager.themeColorFlow.collectAsState(initial = "Default")
+
     val coroutineScope = rememberCoroutineScope()
 
     val currentUserProfile by authViewModel.currentUserProfile.collectAsState()
@@ -45,8 +47,6 @@ fun SettingsScreen(
     var promoEnabled by remember { mutableStateOf(false) }
 
     var showThemeDialog by remember { mutableStateOf(false) }
-    var selectedTheme by remember { mutableStateOf("Default") }
-
     var showAboutDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
 
@@ -250,7 +250,7 @@ fun SettingsScreen(
     if (showThemeDialog) {
 
         val themeColors = listOf(
-            "Default" to MaterialTheme.colorScheme.primary,
+            "Default" to Color(0xFF9E3A3A),
             "Slate" to Color(0xFF475569),
             "Indigo" to Color(0xFF4F46E5),
             "Emerald" to Color(0xFF059669),
@@ -271,7 +271,11 @@ fun SettingsScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    selectedTheme = name
+
+                                    coroutineScope.launch {
+                                        preferencesManager.setThemeColor(name)
+                                    }
+
                                     showThemeDialog = false
                                 }
                                 .padding(12.dp),
@@ -296,30 +300,14 @@ fun SettingsScreen(
     }
 
     if (showAboutDialog) {
+
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
-            title = { Text("About Nrikesari App") },
+            title = { Text("About Nrikesari") },
             text = {
-
-                Column {
-
-                    Text(
-                        "Nrikesari",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(Modifier.height(6.dp))
-
-                    Text("Version 1.0.0")
-
-                    Spacer(Modifier.height(10.dp))
-
-                    Text(
-                        "Nrikesari is a creative digital platform focused on building "
-                                + "modern applications, digital solutions, and innovative technology products."
-                    )
-                }
+                Text(
+                    "Nrikesari builds modern digital solutions including apps and websites to help businesses grow."
+                )
             },
             confirmButton = {
                 TextButton(onClick = { showAboutDialog = false }) {
@@ -330,11 +318,14 @@ fun SettingsScreen(
     }
 
     if (showPrivacyDialog) {
+
         AlertDialog(
             onDismissRequest = { showPrivacyDialog = false },
             title = { Text("Privacy Policy") },
             text = {
-                Text("We respect your privacy. Your data is never sold or shared with third parties.")
+                Text(
+                    "Your privacy is important to us. Nrikesari collects only necessary information to provide services. Your data is never sold or shared without consent."
+                )
             },
             confirmButton = {
                 TextButton(onClick = { showPrivacyDialog = false }) {
@@ -343,11 +334,12 @@ fun SettingsScreen(
             }
         )
     }
+
+
 }
 
 @Composable
 fun SectionTitle(text: String) {
-
     Text(
         text = text,
         style = MaterialTheme.typography.titleMedium,
@@ -358,13 +350,11 @@ fun SectionTitle(text: String) {
 
 @Composable
 fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
-
     Card(
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
-
         Column(
             modifier = Modifier.padding(vertical = 6.dp),
             content = content
@@ -380,6 +370,7 @@ fun SettingsItem(
     onClick: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)
 ) {
+
 
     Row(
         modifier = Modifier

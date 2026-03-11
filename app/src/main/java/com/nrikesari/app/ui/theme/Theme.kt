@@ -17,15 +17,12 @@ import androidx.core.view.WindowCompat
 /* -------------------- */
 
 fun getPrimaryColor(theme: String): Color {
-
     return when (theme) {
-
         "Slate" -> ThemeSlate
         "Indigo" -> ThemeIndigo
         "Emerald" -> ThemeEmerald
         "Amber" -> ThemeAmber
         "Rose" -> ThemeRose
-
         else -> DeepMaroon
     }
 }
@@ -35,7 +32,6 @@ fun getPrimaryColor(theme: String): Color {
 /* -------------------- */
 
 fun darkScheme(primaryColor: Color) = darkColorScheme(
-
     primary = primaryColor,
     onPrimary = PureWhite,
 
@@ -59,7 +55,6 @@ fun darkScheme(primaryColor: Color) = darkColorScheme(
 /* -------------------- */
 
 fun lightScheme(primaryColor: Color) = lightColorScheme(
-
     primary = primaryColor,
     onPrimary = PureWhite,
 
@@ -84,12 +79,10 @@ fun lightScheme(primaryColor: Color) = lightColorScheme(
 
 @Composable
 fun NrikesariTheme(
-
     themeColor: String = "Default",
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,   // 🔴 FIXED HERE
     content: @Composable () -> Unit
-
 ) {
 
     val context = LocalContext.current
@@ -112,7 +105,6 @@ fun NrikesariTheme(
     }
 
     if (!view.isInEditMode) {
-
         SideEffect {
 
             val window = (view.context as Activity).window
@@ -121,7 +113,6 @@ fun NrikesariTheme(
             window.navigationBarColor = colorScheme.background.toArgb()
 
             WindowCompat.getInsetsController(window, view).apply {
-
                 isAppearanceLightStatusBars = !darkTheme
                 isAppearanceLightNavigationBars = !darkTheme
             }
