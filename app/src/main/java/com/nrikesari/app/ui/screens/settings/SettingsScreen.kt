@@ -1,6 +1,10 @@
 package com.nrikesari.app.ui.screens.settings
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,14 +16,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.nrikesari.app.model.PreferencesManager
-import com.nrikesari.app.viewmodel.AuthViewModel
 import com.nrikesari.app.navigation.Screen
+import com.nrikesari.app.viewmodel.AuthViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -38,6 +43,11 @@ fun SettingsScreen(
 
     var notificationsEnabled by remember { mutableStateOf(true) }
     var promoEnabled by remember { mutableStateOf(false) }
+
+    var showThemeDialog by remember { mutableStateOf(false) }
+    var selectedTheme by remember { mutableStateOf("Default") }
+
+    var showAboutDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -64,10 +74,6 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // =====================
-        // USER DASHBOARD
-        // =====================
-
         currentUserProfile?.let { user ->
 
             SectionTitle("Dashboard")
@@ -85,7 +91,6 @@ fun SettingsScreen(
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.clickable {
                                 authViewModel.logout()
-
                                 navController.navigate(Screen.Login.route) {
                                     popUpTo(0)
                                 }
@@ -101,9 +106,7 @@ fun SettingsScreen(
                     title = "My Projects",
                     subtitle = "View your project status",
                     trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
-                    onClick = {
-                        navController.navigate(Screen.MyProjects.route)
-                    }
+                    onClick = { navController.navigate(Screen.MyProjects.route) }
                 )
 
                 HorizontalDivider()
@@ -113,33 +116,24 @@ fun SettingsScreen(
                     title = "Book a Call",
                     subtitle = "Schedule a consultation",
                     trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
-                    onClick = {
-                        navController.navigate(Screen.BookCall.route)
-                    }
+                    onClick = { navController.navigate(Screen.BookCall.route) }
                 )
             }
 
         } ?: run {
 
             SettingsCard {
-
                 SettingsItem(
                     icon = Icons.Default.Login,
                     title = "Login / Sign Up",
                     subtitle = "Sign in to manage your projects",
                     trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
-                    onClick = {
-                        navController.navigate(Screen.Login.route)
-                    }
+                    onClick = { navController.navigate(Screen.Login.route) }
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(28.dp))
-
-        // =====================
-        // APPEARANCE
-        // =====================
 
         SectionTitle("Appearance")
 
@@ -166,16 +160,13 @@ fun SettingsScreen(
             SettingsItem(
                 icon = Icons.Default.ColorLens,
                 title = "Theme Color",
-                subtitle = "Customize accent color",
-                trailing = { Icon(Icons.Default.ArrowForwardIos, null) }
+                subtitle = "Current: $selectedTheme",
+                trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
+                onClick = { showThemeDialog = true }
             )
         }
 
         Spacer(modifier = Modifier.height(22.dp))
-
-        // =====================
-        // NOTIFICATIONS
-        // =====================
 
         SectionTitle("Notifications")
 
@@ -210,10 +201,6 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(22.dp))
 
-        // =====================
-        // APPLICATION
-        // =====================
-
         SectionTitle("Application")
 
         SettingsCard {
@@ -222,7 +209,8 @@ fun SettingsScreen(
                 icon = Icons.Default.Info,
                 title = "About App",
                 subtitle = "Version 1.0.0",
-                trailing = { Icon(Icons.Default.ArrowForwardIos, null) }
+                trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
+                onClick = { showAboutDialog = true }
             )
 
             HorizontalDivider()
@@ -231,7 +219,14 @@ fun SettingsScreen(
                 icon = Icons.Default.PrivacyTip,
                 title = "Privacy Policy",
                 subtitle = "View privacy policy",
-                trailing = { Icon(Icons.Default.ArrowForwardIos, null) }
+                trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
+                onClick = {
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://nrikesari.com/privacy")
+                    )
+                    context.startActivity(intent)
+                }
             )
 
             HorizontalDivider()
@@ -240,7 +235,14 @@ fun SettingsScreen(
                 icon = Icons.Default.SupportAgent,
                 title = "Support",
                 subtitle = "Contact support team",
-                trailing = { Icon(Icons.Default.ArrowForwardIos, null) }
+                trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
+                onClick = {
+                    val intent = Intent(
+                        Intent.ACTION_SENDTO,
+                        Uri.parse("mailto:support@nrikesari.com")
+                    )
+                    context.startActivity(intent)
+                }
             )
         }
 
@@ -253,18 +255,32 @@ fun SettingsScreen(
         )
 
         Text(
-            text = "© 2026 Nrikesari Media",
+            text = "© 2026 Nrikesari Media & Technology",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
         )
 
         Spacer(modifier = Modifier.height(30.dp))
     }
+
+    if (showAboutDialog) {
+        AlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            title = { Text("About Nrikesari") },
+            text = {
+                Text("Nrikesari is a creative technology studio providing app development, design, and digital solutions.")
+            },
+            confirmButton = {
+                TextButton(onClick = { showAboutDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
 }
 
 @Composable
 fun SectionTitle(text: String) {
-
     Text(
         text = text,
         style = MaterialTheme.typography.titleMedium,
@@ -275,21 +291,13 @@ fun SectionTitle(text: String) {
 
 @Composable
 fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
-
     Card(
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(0.dp),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant
-        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
-
-        Column(
-            modifier = Modifier.padding(vertical = 6.dp),
-            content = content
-        )
+        Column(modifier = Modifier.padding(vertical = 6.dp), content = content)
     }
 }
 
