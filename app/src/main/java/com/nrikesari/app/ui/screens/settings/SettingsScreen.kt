@@ -4,11 +4,11 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -48,6 +48,7 @@ fun SettingsScreen(
     var selectedTheme by remember { mutableStateOf("Default") }
 
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showPrivacyDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -56,7 +57,7 @@ fun SettingsScreen(
             .padding(horizontal = 20.dp)
     ) {
 
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(Modifier.height(40.dp))
 
         Text(
             text = "Settings & Profile",
@@ -65,14 +66,14 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.primary
         )
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(Modifier.height(6.dp))
 
         Text(
             text = "Manage your account and app preferences",
             style = MaterialTheme.typography.bodyMedium
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(Modifier.height(28.dp))
 
         currentUserProfile?.let { user ->
 
@@ -123,6 +124,7 @@ fun SettingsScreen(
         } ?: run {
 
             SettingsCard {
+
                 SettingsItem(
                     icon = Icons.Default.Login,
                     title = "Login / Sign Up",
@@ -133,7 +135,7 @@ fun SettingsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(Modifier.height(28.dp))
 
         SectionTitle("Appearance")
 
@@ -166,7 +168,7 @@ fun SettingsScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(Modifier.height(22.dp))
 
         SectionTitle("Notifications")
 
@@ -199,7 +201,7 @@ fun SettingsScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(Modifier.height(22.dp))
 
         SectionTitle("Application")
 
@@ -220,13 +222,7 @@ fun SettingsScreen(
                 title = "Privacy Policy",
                 subtitle = "View privacy policy",
                 trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
-                onClick = {
-                    val intent = Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse("https://nrikesari.com/privacy")
-                    )
-                    context.startActivity(intent)
-                }
+                onClick = { showPrivacyDialog = true }
             )
 
             HorizontalDivider()
@@ -234,44 +230,114 @@ fun SettingsScreen(
             SettingsItem(
                 icon = Icons.Default.SupportAgent,
                 title = "Support",
-                subtitle = "Contact support team",
+                subtitle = "Email support team",
                 trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
                 onClick = {
-                    val intent = Intent(
-                        Intent.ACTION_SENDTO,
-                        Uri.parse("mailto:support@nrikesari.com")
-                    )
+
+                    val intent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = Uri.parse("mailto:contact@nrikesari.in")
+                        putExtra(Intent.EXTRA_SUBJECT, "Nrikesari App Support")
+                    }
+
                     context.startActivity(intent)
                 }
             )
         }
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(Modifier.height(30.dp))
+    }
 
-        Text(
-            text = "Nrikesari App",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+    if (showThemeDialog) {
+
+        val themeColors = listOf(
+            "Default" to MaterialTheme.colorScheme.primary,
+            "Slate" to Color(0xFF475569),
+            "Indigo" to Color(0xFF4F46E5),
+            "Emerald" to Color(0xFF059669),
+            "Amber" to Color(0xFFD97706),
+            "Rose" to Color(0xFFE11D48)
         )
 
-        Text(
-            text = "© 2026 Nrikesari Media & Technology",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-        )
+        AlertDialog(
+            onDismissRequest = { showThemeDialog = false },
+            title = { Text("Choose Theme Color") },
+            text = {
 
-        Spacer(modifier = Modifier.height(30.dp))
+                Column {
+
+                    themeColors.forEach { (name, color) ->
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedTheme = name
+                                    showThemeDialog = false
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .background(color, CircleShape)
+                            )
+
+                            Spacer(Modifier.width(12.dp))
+
+                            Text(name)
+                        }
+                    }
+                }
+            },
+            confirmButton = {}
+        )
     }
 
     if (showAboutDialog) {
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
-            title = { Text("About Nrikesari") },
+            title = { Text("About Nrikesari App") },
             text = {
-                Text("Nrikesari is a creative technology studio providing app development, design, and digital solutions.")
+
+                Column {
+
+                    Text(
+                        "Nrikesari",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(Modifier.height(6.dp))
+
+                    Text("Version 1.0.0")
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Text(
+                        "Nrikesari is a creative digital platform focused on building "
+                                + "modern applications, digital solutions, and innovative technology products."
+                    )
+                }
             },
             confirmButton = {
                 TextButton(onClick = { showAboutDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    if (showPrivacyDialog) {
+        AlertDialog(
+            onDismissRequest = { showPrivacyDialog = false },
+            title = { Text("Privacy Policy") },
+            text = {
+                Text("We respect your privacy. Your data is never sold or shared with third parties.")
+            },
+            confirmButton = {
+                TextButton(onClick = { showPrivacyDialog = false }) {
                     Text("OK")
                 }
             }
@@ -281,6 +347,7 @@ fun SettingsScreen(
 
 @Composable
 fun SectionTitle(text: String) {
+
     Text(
         text = text,
         style = MaterialTheme.typography.titleMedium,
@@ -291,13 +358,17 @@ fun SectionTitle(text: String) {
 
 @Composable
 fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+
     Card(
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(0.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(vertical = 6.dp), content = content)
+
+        Column(
+            modifier = Modifier.padding(vertical = 6.dp),
+            content = content
+        )
     }
 }
 
@@ -319,19 +390,17 @@ fun SettingsItem(
     ) {
 
         Icon(
-            icon,
+            imageVector = icon,
             contentDescription = title,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
+            tint = MaterialTheme.colorScheme.primary
         )
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(Modifier.width(16.dp))
 
         Column(modifier = Modifier.weight(1f)) {
 
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
 
