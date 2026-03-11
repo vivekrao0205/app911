@@ -4,9 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Star
@@ -35,17 +35,19 @@ fun WriteReviewScreen(
 
     val currentUserProfile by authViewModel.currentUserProfile.collectAsState()
     val submissionState by userViewModel.submissionState.collectAsState()
+    val reviews by userViewModel.reviews.collectAsState()
 
     var feedback by remember { mutableStateOf("") }
     var serviceType by remember { mutableStateOf("") }
     var rating by remember { mutableStateOf(5) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var isSubmitted by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        userViewModel.loadTestimonials()
+    }
 
     LaunchedEffect(submissionState) {
-        if (submissionState is SubmissionState.Success) {
-            isSubmitted = true
-        } else if (submissionState is SubmissionState.Error) {
+        if (submissionState is SubmissionState.Error) {
             errorMessage = (submissionState as SubmissionState.Error).message
         }
     }
@@ -53,188 +55,197 @@ fun WriteReviewScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Write a Review", fontWeight = FontWeight.Bold) },
+                title = { Text("Reviews", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, null)
                     }
                 }
             )
         }
     ) { paddingValues ->
 
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.background)
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            if (isSubmitted) {
+            item {
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(
-                            1.dp,
-                            MaterialTheme.colorScheme.primary,
-                            RoundedCornerShape(10.dp)
+                Text(
+                    "Share Your Experience",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    "Your feedback helps us improve.",
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                errorMessage?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
+
+                Text("Rating", fontWeight = FontWeight.SemiBold)
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row {
+
+                    for (i in 1..5) {
+
+                        Icon(
+                            imageVector =
+                            if (i <= rating)
+                                Icons.Filled.Star
+                            else
+                                Icons.Outlined.StarBorder,
+
+                            contentDescription = null,
+
+                            tint =
+                            if (i <= rating)
+                                Color(0xFFFFC107)
+                            else
+                                Color.Gray,
+
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clickable { rating = i }
                         )
-                        .padding(20.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "Thank you! Your review has been submitted.",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                Button(
-                    onClick = { navController.popBackStack() },
+                OutlinedTextField(
+                    value = serviceType,
+                    onValueChange = { serviceType = it },
+                    label = { Text("Service Received") },
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Go Back")
-                }
-
-                return@Column
-            }
-
-            Text(
-                "Share Your Experience",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                "Your feedback helps us improve and helps others.",
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            errorMessage?.let {
-                Text(
-                    text = it,
-                    color = MaterialTheme.colorScheme.error
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = feedback,
+                    onValueChange = { feedback = it },
+                    label = { Text("Your Review") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                val isSubmitting = submissionState is SubmissionState.Submitting
+
+                Button(
+                    onClick = {
+
+                        if (currentUserProfile == null) {
+                            errorMessage = "Please login first"
+                            return@Button
+                        }
+
+                        if (feedback.isBlank()) {
+                            errorMessage = "Write your review"
+                            return@Button
+                        }
+
+                        val testimonial = Testimonial(
+                            id = UUID.randomUUID().toString(),
+                            clientName = currentUserProfile?.name ?: "Anonymous",
+                            serviceType = serviceType,
+                            feedback = feedback,
+                            rating = rating.toFloat(),
+                            avatarUrl = "",
+                            timestamp = System.currentTimeMillis()
+                        )
+
+                        userViewModel.submitTestimonial(testimonial)
+
+                        feedback = ""
+                        serviceType = ""
+                        rating = 5
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSubmitting
+                ) {
+
+                    if (isSubmitting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White
+                        )
+                    } else {
+                        Text("Submit Review")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Text(
+                    "Client Reviews",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
             }
 
-            // ⭐ Rating
-            Text("Rating", fontWeight = FontWeight.SemiBold)
+            items(reviews) { review ->
 
-            Spacer(modifier = Modifier.height(10.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
 
-                for (i in 1..5) {
+                        Text(
+                            review.clientName,
+                            fontWeight = FontWeight.Bold
+                        )
 
-                    Icon(
-                        imageVector =
-                        if (i <= rating)
-                            Icons.Filled.Star
-                        else
-                            Icons.Outlined.StarBorder,
+                        Row {
 
-                        contentDescription = "Star",
+                            repeat(review.rating.toInt()) {
 
-                        tint =
-                        if (i <= rating)
-                            Color(0xFFFFC107)
-                        else
-                            Color.Gray,
+                                Icon(
+                                    Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFFC107)
+                                )
+                            }
+                        }
 
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clickable { rating = i }
-                    )
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(review.feedback)
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            review.serviceType,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Service Type
-            OutlinedTextField(
-                value = serviceType,
-                onValueChange = { serviceType = it },
-                label = { Text("Service Received") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(10.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Feedback
-            OutlinedTextField(
-                value = feedback,
-                onValueChange = { feedback = it },
-                label = { Text("Your Review") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp),
-                shape = RoundedCornerShape(10.dp)
-            )
-
-            Spacer(modifier = Modifier.height(30.dp))
-
-            val isSubmitting = submissionState is SubmissionState.Submitting
-
-            Button(
-                onClick = {
-
-                    if (currentUserProfile == null) {
-                        errorMessage = "Please login first."
-                        return@Button
-                    }
-
-                    if (feedback.isBlank() || serviceType.isBlank()) {
-                        errorMessage = "Please fill all fields."
-                        return@Button
-                    }
-
-                    val testimonial = Testimonial(
-                        id = UUID.randomUUID().toString(),
-                        clientName = currentUserProfile?.name ?: "Anonymous",
-                        serviceType = serviceType.trim(),
-                        feedback = feedback.trim(),
-                        rating = rating.toFloat(),
-                        avatarUrl = ""
-                    )
-
-                    userViewModel.submitTestimonial(testimonial)
-                },
-
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(55.dp),
-
-                shape = RoundedCornerShape(10.dp),
-
-                enabled = !isSubmitting
-            ) {
-
-                if (isSubmitting) {
-
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(22.dp),
-                        color = Color.White
-                    )
-
-                } else {
-
-                    Text(
-                        "Submit Review",
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+            item {
+                Spacer(modifier = Modifier.height(40.dp))
             }
         }
     }

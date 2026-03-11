@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.nrikesari.app.R
 import com.nrikesari.app.navigation.Screen
-import com.nrikesari.app.firebase.FirebaseService
 import com.nrikesari.app.model.Testimonial
 import com.nrikesari.app.viewmodel.UserViewModel
 import kotlinx.coroutines.delay
@@ -83,7 +82,7 @@ fun HomeScreen(navController: NavController, userViewModel: UserViewModel) {
 
             Spacer(modifier = Modifier.height(60.dp))
 
-            TestimonialSection(navController)
+            TestimonialSection(navController, userViewModel)
 
             Spacer(modifier = Modifier.height(80.dp))
         }
@@ -274,32 +273,31 @@ fun StatItem(icon: ImageVector, value: String, label: String) {
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary
-        )
+        Icon(icon,null,tint = MaterialTheme.colorScheme.primary)
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        Text(
-            text = value,
+        Text(value,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
+            color = MaterialTheme.colorScheme.primary)
 
-        Text(
-            text = label,
+        Text(label,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-        )
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
     }
 }
+
 /* ---------------- TESTIMONIALS ---------------- */
 
 @Composable
-fun TestimonialSection(navController: NavController) {
+fun TestimonialSection(navController: NavController, userViewModel: UserViewModel) {
+
+    val reviews by userViewModel.reviews.collectAsState()
+
+    LaunchedEffect(Unit) {
+        userViewModel.loadTestimonials()
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -319,17 +317,29 @@ fun TestimonialSection(navController: NavController) {
             onClick = { navController.navigate(Screen.WriteReview.route) },
             modifier = Modifier.padding(bottom = 24.dp)
         ) {
-            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.Star,null,modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text("Write a Review")
         }
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        Text(
-            "No reviews yet.",
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-        )
+        if (reviews.isEmpty()) {
+
+            Text(
+                "No reviews yet.",
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
+
+        } else {
+
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+
+                items(reviews) { testimonial ->
+                    TestimonialCard(testimonial)
+                }
+            }
+        }
     }
 }
 
@@ -340,7 +350,7 @@ fun TestimonialCard(testimonial: Testimonial) {
 
     Card(
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(0.dp), // removed shadow
+        elevation = CardDefaults.cardElevation(0.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.width(300.dp)
     ) {

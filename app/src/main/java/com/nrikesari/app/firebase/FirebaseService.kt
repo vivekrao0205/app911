@@ -93,8 +93,6 @@ class FirebaseService {
         }
     }
 
-    // Create profile if missing (important for Google login)
-
     private suspend fun ensureUserProfile(uid: String) {
 
         val doc = firestore.collection("users")
@@ -191,11 +189,37 @@ class FirebaseService {
 
     // ---------------- TESTIMONIALS ----------------
 
+    suspend fun submitTestimonial(testimonial: Testimonial): Result<Unit> {
+
+        return try {
+
+            val id = if (testimonial.id.isBlank())
+                UUID.randomUUID().toString()
+            else testimonial.id
+
+            val newTestimonial = testimonial.copy(
+                id = id,
+                timestamp = System.currentTimeMillis()
+            )
+
+            firestore.collection("testimonials")
+                .document(id)
+                .set(newTestimonial)
+                .await()
+
+            Result.success(Unit)
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getTestimonials(): Result<List<Testimonial>> {
 
         return try {
 
             val snapshot = firestore.collection("testimonials")
+                .orderBy("timestamp")
                 .get()
                 .await()
 

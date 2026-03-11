@@ -4,18 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nrikesari.app.firebase.FirebaseService
 import com.nrikesari.app.model.ProjectInquiry
-import kotlinx.coroutines.tasks.await
+import com.nrikesari.app.model.Testimonial
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-sealed class UserProjectsState {
-    object Idle : UserProjectsState()
-    object Loading : UserProjectsState()
-    data class Success(val projects: List<ProjectInquiry>) : UserProjectsState()
-    data class Error(val message: String) : UserProjectsState()
-}
+// ---------------- REVIEW SUBMISSION STATE ----------------
 
 sealed class SubmissionState {
     object Idle : SubmissionState()
@@ -24,59 +18,127 @@ sealed class SubmissionState {
     data class Error(val message: String) : SubmissionState()
 }
 
+// ---------------- USER PROJECTS STATE ----------------
+
+sealed class UserProjectsState {
+    object Idle : UserProjectsState()
+    object Loading : UserProjectsState()
+    data class Success(val projects: List<ProjectInquiry>) : UserProjectsState()
+    data class Error(val message: String) : UserProjectsState()
+}
+
 class UserViewModel : ViewModel() {
 
     private val firebaseService = FirebaseService()
 
-    private val _projectsState = MutableStateFlow<UserProjectsState>(UserProjectsState.Idle)
-    val projectsState: StateFlow<UserProjectsState> = _projectsState.asStateFlow()
+    // ---------------- REVIEW STATE ----------------
 
-    private val _submissionState = MutableStateFlow<SubmissionState>(SubmissionState.Idle)
-    val submissionState: StateFlow<SubmissionState> = _submissionState.asStateFlow()
+    private val _submissionState =
+        MutableStateFlow<SubmissionState>(SubmissionState.Idle)
+
+    val submissionState: StateFlow<SubmissionState> = _submissionState
+
+    // ---------------- REVIEWS LIST ----------------
+
+    private val _reviews =
+        MutableStateFlow<List<Testimonial>>(emptyList())
+
+    val reviews: StateFlow<List<Testimonial>> = _reviews
+
+    // ---------------- PROJECTS STATE ----------------
+
+    private val _projectsState =
+        MutableStateFlow<UserProjectsState>(UserProjectsState.Idle)
+
+    val projectsState: StateFlow<UserProjectsState> = _projectsState
+
+    // ---------------- SUBMIT REVIEW ----------------
+
+    fun submitTestimonial(testimonial: Testimonial) {
+
+        viewModelScope.launch {
+
+            _submissionState.value = SubmissionState.Submitting
+
+            val result = firebaseService.submitTestimonial(testimonial)
+
+            result.onSuccess {
+
+                _submissionState.value = SubmissionState.Success
+                loadTestimonials()
+
+            }.onFailure {
+
+                _submissionState.value =
+                    SubmissionState.Error(
+                        it.message ?: "Failed to submit review"
+                    )
+            }
+        }
+    }
+
+    // ---------------- LOAD REVIEWS ----------------
+
+    fun loadTestimonials() {
+
+        viewModelScope.launch {
+
+            val result = firebaseService.getTestimonials()
+
+            result.onSuccess {
+
+                _reviews.value = it
+
+            }.onFailure {
+
+                _submissionState.value =
+                    SubmissionState.Error(
+                        it.message ?: "Failed to load reviews"
+                    )
+            }
+        }
+    }
+
+    // ---------------- FETCH USER PROJECTS ----------------
 
     fun fetchUserProjects(userId: String) {
-        _projectsState.value = UserProjectsState.Loading
+
         viewModelScope.launch {
+
+            _projectsState.value = UserProjectsState.Loading
+
             val result = firebaseService.getUserProjects(userId)
-            if (result.isSuccess) {
-                _projectsState.value = UserProjectsState.Success(result.getOrDefault(emptyList()))
-            } else {
-                _projectsState.value = UserProjectsState.Error(result.exceptionOrNull()?.message ?: "Failed to fetch projects")
+
+            result.onSuccess {
+
+                _projectsState.value =
+                    UserProjectsState.Success(it)
+
+            }.onFailure {
+
+                _projectsState.value =
+                    UserProjectsState.Error(
+                        it.message ?: "Failed to load projects"
+                    )
             }
         }
     }
 
+    // ---------------- SUBMIT PROJECT ENQUIRY ----------------
+
     fun submitProjectEnquiry(inquiry: ProjectInquiry) {
-        _submissionState.value = SubmissionState.Submitting
+
         viewModelScope.launch {
+
             val result = firebaseService.submitProjectInquiry(inquiry)
-            if (result.isSuccess) {
-                _submissionState.value = SubmissionState.Success
-                // optionally re-fetch projects if needed, or rely on snapshot
-                fetchUserProjects(inquiry.userId) 
-            } else {
-                _submissionState.value = SubmissionState.Error(result.exceptionOrNull()?.message ?: "Failed to submit enquiry")
+
+            result.onFailure {
+
+                _submissionState.value =
+                    SubmissionState.Error(
+                        it.message ?: "Failed to submit enquiry"
+                    )
             }
         }
-    }
-    
-    fun submitTestimonial(testimonial: com.nrikesari.app.model.Testimonial) {
-        _submissionState.value = SubmissionState.Submitting
-        viewModelScope.launch {
-            val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-            try {
-                db.collection("testimonials")
-                    .document(testimonial.id)
-                    .set(testimonial)
-                    .await()
-                _submissionState.value = SubmissionState.Success
-            } catch (e: Exception) {
-                _submissionState.value = SubmissionState.Error(e.message ?: "Failed to submit review")
-            }
-        }
-    }
-    
-    fun resetSubmissionState() {
-        _submissionState.value = SubmissionState.Idle
     }
 }

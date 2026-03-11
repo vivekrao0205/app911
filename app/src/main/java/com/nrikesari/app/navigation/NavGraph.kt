@@ -146,7 +146,10 @@ fun NrikesariNavGraph(
             }
 
             composable(Screen.Contact.route) {
-                ContactScreen(navController)
+                ContactScreen(
+                    navController = navController,
+                    authViewModel = authViewModel
+                )
             }
 
             composable(Screen.Skills.route) {

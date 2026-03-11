@@ -23,14 +23,20 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavController
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.nrikesari.app.viewmodel.AuthViewModel
 import com.nrikesari.app.ui.components.CustomTextField
 import com.nrikesari.app.ui.components.PrimaryButton
 
 @Composable
-fun ContactScreen(navController: NavController) {
+fun ContactScreen(
+    navController: NavController,
+    authViewModel: AuthViewModel
+) {
 
     val context = LocalContext.current
     val firestore = FirebaseFirestore.getInstance()
+
+    val currentUserProfile by authViewModel.currentUserProfile.collectAsState()
 
     var name by remember { mutableStateOf("") }
     var company by remember { mutableStateOf("") }
@@ -107,8 +113,7 @@ fun ContactScreen(navController: NavController) {
 
         Text(
             "We build modern websites, apps and digital products.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = MaterialTheme.typography.bodyMedium
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -165,27 +170,67 @@ fun ContactScreen(navController: NavController) {
 
             Column(modifier = Modifier.padding(18.dp)) {
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ){
+                /* LOGIN / PROFILE */
 
-                    Button(
-                        onClick = { navController.navigate("login") },
-                        modifier = Modifier.weight(1f)
+                if (currentUserProfile != null) {
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ){
-                        Icon(Icons.Default.Login,null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Login")
+
+                        Icon(Icons.Default.AccountCircle,null)
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Column(modifier = Modifier.weight(1f)){
+
+                            Text(
+                                currentUserProfile!!.name,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Text(
+                                currentUserProfile!!.email,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+
+                        Text(
+                            "Logout",
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable {
+
+                                authViewModel.logout()
+
+                                navController.navigate("login"){
+                                    popUpTo(0)
+                                }
+                            }
+                        )
                     }
 
-                    OutlinedButton(
-                        onClick = { navController.navigate("signup") },
-                        modifier = Modifier.weight(1f)
+                } else {
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ){
-                        Icon(Icons.Default.PersonAdd,null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Sign Up")
+
+                        Button(
+                            onClick = { navController.navigate("login") },
+                            modifier = Modifier.weight(1f)
+                        ){
+                            Text("Login")
+                        }
+
+                        OutlinedButton(
+                            onClick = { navController.navigate("signup") },
+                            modifier = Modifier.weight(1f)
+                        ){
+                            Text("Sign Up")
+                        }
                     }
                 }
 
@@ -204,8 +249,8 @@ fun ContactScreen(navController: NavController) {
                         navController.navigate("write_review")
                     }
 
-                    DashboardItem(Icons.Default.Work,"Projects"){
-                        navController.navigate("projects")
+                    DashboardItem(Icons.Default.Work,"My Projects"){
+                        navController.navigate("my_projects")
                     }
 
                     DashboardItem(Icons.Default.Settings,"Settings"){
