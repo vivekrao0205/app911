@@ -6,16 +6,37 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+/* -------------------- */
+/* THEME COLOR SWITCH */
+/* -------------------- */
+
+fun getPrimaryColor(theme: String): Color {
+
+    return when (theme) {
+
+        "Slate" -> ThemeSlate
+        "Indigo" -> ThemeIndigo
+        "Emerald" -> ThemeEmerald
+        "Amber" -> ThemeAmber
+        "Rose" -> ThemeRose
+
+        else -> DeepMaroon
+    }
+}
+
+/* -------------------- */
 /* DARK COLOR SCHEME */
+/* -------------------- */
 
-private val DarkColorScheme = darkColorScheme(
+fun darkScheme(primaryColor: Color) = darkColorScheme(
 
-    primary = DeepMaroon,
+    primary = primaryColor,
     onPrimary = PureWhite,
 
     secondary = SoftBeige,
@@ -30,14 +51,16 @@ private val DarkColorScheme = darkColorScheme(
     surfaceVariant = DarkSurfaceElevated,
     onSurfaceVariant = DarkOnSurface,
 
-    surfaceTint = DeepMaroon
+    surfaceTint = primaryColor
 )
 
+/* -------------------- */
 /* LIGHT COLOR SCHEME */
+/* -------------------- */
 
-private val LightColorScheme = lightColorScheme(
+fun lightScheme(primaryColor: Color) = lightColorScheme(
 
-    primary = DeepMaroon,
+    primary = primaryColor,
     onPrimary = PureWhite,
 
     secondary = SoftBeige,
@@ -52,7 +75,7 @@ private val LightColorScheme = lightColorScheme(
     surfaceVariant = SoftBeige.copy(alpha = 0.2f),
     onSurfaceVariant = DarkCharcoal,
 
-    surfaceTint = DeepMaroon
+    surfaceTint = primaryColor
 )
 
 /* -------------------- */
@@ -61,42 +84,47 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun NrikesariTheme(
+
+    themeColor: String = "Default",
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
+    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
+
 ) {
 
+    val context = LocalContext.current
+    val view = LocalView.current
+
+    val primaryColor = getPrimaryColor(themeColor)
+
     val colorScheme = when {
+
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
             if (darkTheme)
                 dynamicDarkColorScheme(context)
             else
                 dynamicLightColorScheme(context)
         }
 
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        darkTheme -> darkScheme(primaryColor)
+
+        else -> lightScheme(primaryColor)
     }
 
-    val view = LocalView.current
-
     if (!view.isInEditMode) {
+
         SideEffect {
+
             val window = (view.context as Activity).window
 
-            // Status bar color
             window.statusBarColor = colorScheme.background.toArgb()
-
-            // Navigation bar color
             window.navigationBarColor = colorScheme.background.toArgb()
 
-            // Light / Dark icons
-            WindowCompat.getInsetsController(window, view)
-                .apply {
-                    isAppearanceLightStatusBars = !darkTheme
-                    isAppearanceLightNavigationBars = !darkTheme
-                }
+            WindowCompat.getInsetsController(window, view).apply {
+
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
         }
     }
 
