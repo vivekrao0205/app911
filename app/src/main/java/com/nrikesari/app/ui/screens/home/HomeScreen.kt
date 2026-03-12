@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -96,36 +97,38 @@ fun PremiumBackground() {
 
     val transition = rememberInfiniteTransition(label = "bg")
 
-    val glowScale by transition.animateFloat(
-        initialValue = 0.9f,
-        targetValue = 1.2f,
+    val offsetX by transition.animateFloat(
+        initialValue = -300f,
+        targetValue = 300f,
         animationSpec = infiniteRepeatable(
-            tween(4000),
-            RepeatMode.Reverse
-        ), label = ""
+            animation = tween(12000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = ""
     )
 
-    val alpha by transition.animateFloat(
-        initialValue = 0.08f,
-        targetValue = 0.16f,
+    val offsetY by transition.animateFloat(
+        initialValue = -200f,
+        targetValue = 200f,
         animationSpec = infiniteRepeatable(
-            tween(4000),
-            RepeatMode.Reverse
-        ), label = ""
+            animation = tween(15000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = ""
     )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .scale(glowScale)
-            .alpha(alpha)
-            .blur(120.dp)
             .background(
-                Brush.radialGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                        Color.Transparent
-                    )
+                Brush.linearGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
+                        MaterialTheme.colorScheme.background
+                    ),
+                    start = Offset(offsetX, offsetY),
+                    end = Offset(offsetX + 800f, offsetY + 1200f)
                 )
             )
     )
