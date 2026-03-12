@@ -123,7 +123,7 @@ fun SplashScreen(navController: NavController) {
             ) {
 
                 Image(
-                    painter = painterResource(id = R.mipmap.ic_launcher_foreground),
+                    painter = painterResource(id = R.mipmap.icon),
                     contentDescription = "Nrikesari",
                     modifier = Modifier
                         .size(190.dp)

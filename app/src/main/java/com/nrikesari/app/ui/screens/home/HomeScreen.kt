@@ -160,7 +160,7 @@ fun AnimatedLogo() {
             ) {}
 
             Image(
-                painter = painterResource(R.mipmap.ic_launcher_foreground),
+                painter = painterResource(R.mipmap.icon),
                 contentDescription = "Logo",
                 modifier = Modifier
                     .size(160.dp)
