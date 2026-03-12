@@ -26,6 +26,7 @@ import com.nrikesari.app.ui.screens.settings.SettingsScreen
 import com.nrikesari.app.ui.screens.skills.SkillsScreen
 import com.nrikesari.app.ui.screens.splash.SplashScreen
 import com.nrikesari.app.ui.screens.auth.*
+
 import com.nrikesari.app.viewmodel.MainViewModel
 import com.nrikesari.app.viewmodel.AuthViewModel
 import com.nrikesari.app.viewmodel.UserViewModel
@@ -37,6 +38,7 @@ fun NrikesariNavGraph(
     authViewModel: AuthViewModel,
     userViewModel: UserViewModel
 ) {
+
 
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -146,10 +148,7 @@ fun NrikesariNavGraph(
             }
 
             composable(Screen.Contact.route) {
-                ContactScreen(
-                    navController = navController,
-                    authViewModel = authViewModel
-                )
+                ContactScreen(navController, authViewModel)
             }
 
             composable(Screen.Skills.route) {
@@ -168,8 +167,10 @@ fun NrikesariNavGraph(
                 PremiumFeaturesScreen(navController)
             }
 
+            /* ---------- FIXED HERE ---------- */
+
             composable(Screen.Projects.route) {
-                ProjectsScreen()
+                ProjectsScreen(navController)
             }
 
             composable(Screen.ProjectEnquiry.route) {
@@ -184,7 +185,7 @@ fun NrikesariNavGraph(
                 WriteReviewScreen(navController, authViewModel, userViewModel)
             }
 
-            /* ---------------- LIVE CHAT ---------------- */
+            /* ---------- LIVE CHAT ---------- */
 
             composable(
                 route = Screen.Chat.route,
@@ -201,13 +202,13 @@ fun NrikesariNavGraph(
                 )
             }
 
-            /* ---------------- BOOK CALL ---------------- */
+            /* ---------- BOOK CALL ---------- */
 
             composable(Screen.BookCall.route) {
                 BookCallScreen(navController)
             }
 
-            /* ---------------- AUTH ---------------- */
+            /* ---------- AUTH ---------- */
 
             composable(Screen.Login.route) {
                 LoginScreen(navController, authViewModel)
@@ -218,6 +219,7 @@ fun NrikesariNavGraph(
             }
         }
     }
+
 }
 
 /* ---------------- BOTTOM BAR ---------------- */
@@ -227,6 +229,7 @@ fun BottomBar(
     navController: NavHostController,
     currentRoute: String?
 ) {
+
 
     val items = listOf(
         BottomNavItem("Home", Icons.Default.Home, Screen.Home.route),
@@ -273,6 +276,7 @@ fun BottomBar(
             }
         }
     }
+
 }
 
 /* ---------------- MODEL ---------------- */

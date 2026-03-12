@@ -3,11 +3,9 @@ package com.nrikesari.app.ui.screens.portfolio
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Chat
@@ -19,10 +17,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.nrikesari.app.model.PortfolioProject
-import com.nrikesari.app.viewmodel.AuthViewModel
 import com.nrikesari.app.navigation.Screen
+import com.nrikesari.app.viewmodel.AuthViewModel
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectDetailScreen(
     navController: NavController,
@@ -30,20 +28,15 @@ fun ProjectDetailScreen(
     authViewModel: AuthViewModel
 ) {
 
-    val scrollState = rememberScrollState()
 
     Scaffold(
+
         topBar = {
             TopAppBar(
                 title = { Text(project.title) },
                 navigationIcon = {
-                    IconButton(
-                        onClick = { navController.popBackStack() }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, null)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -51,9 +44,10 @@ fun ProjectDetailScreen(
                 )
             )
         },
+
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { 
+                onClick = {
                     if (authViewModel.currentUserProfile.value != null) {
                         navController.navigate("chat/${project.id}")
                     } else {
@@ -63,142 +57,160 @@ fun ProjectDetailScreen(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
-                Icon(Icons.Filled.Chat, contentDescription = "Chat with us")
+                Icon(Icons.Default.Chat, null)
             }
         }
+
     ) { padding ->
 
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(scrollState)
+                .padding(padding),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
 
-            // Hero Section (Gradient Placeholder)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(250.dp)
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.secondary
+            /* -------- HERO SECTION -------- */
+
+            item {
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+                                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f)
+                                )
                             )
                         )
-                    )
-            )
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp)
-            ) {
-
-                Text(
-                    text = project.category,
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelLarge
                 )
+            }
 
-                Spacer(modifier = Modifier.height(8.dp))
+            /* -------- CONTENT -------- */
 
-                Text(
-                    text = project.title,
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+            item {
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Project Overview",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = project.shortDescription,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text(
-                    text = "Results Achieved",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+                Column(
+                    modifier = Modifier.padding(horizontal = 20.dp)
                 ) {
+
                     Text(
-                        text = project.resultsAchieved,
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium
+                        text = project.category,
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelLarge
                     )
-                }
 
-                // Technology Stack
-                if (project.techStack.isNotEmpty()) {
-
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(Modifier.height(6.dp))
 
                     Text(
-                        text = "Technology Stack",
-                        style = MaterialTheme.typography.titleLarge,
+                        text = project.title,
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(Modifier.height(18.dp))
+
+                    Text(
+                        "Project Overview",
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(Modifier.height(6.dp))
 
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    Text(
+                        project.shortDescription,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
+                    )
+
+                    Spacer(Modifier.height(22.dp))
+
+                    Text(
+                        "Results Achieved",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant
+                        ),
+                        color = MaterialTheme.colorScheme.surface
                     ) {
 
-                        project.techStack.forEach { tech ->
+                        Text(
+                            project.resultsAchieved,
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
+                    Spacer(Modifier.height(22.dp))
+
+                    Text(
+                        "Technology Stack",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+                }
+            }
+
+            /* -------- TECH STACK GRID -------- */
+
+            if (project.techStack.isNotEmpty()) {
+
+                item {
+
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp)
+                            .padding(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        userScrollEnabled = false
+                    ) {
+
+                        items(project.techStack) { tech ->
 
                             Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                contentColor = MaterialTheme.colorScheme.primary,
+                                shape = RoundedCornerShape(10.dp),
                                 border = BorderStroke(
                                     1.dp,
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                                )
+                                    MaterialTheme.colorScheme.outlineVariant
+                                ),
+                                color = MaterialTheme.colorScheme.surface
                             ) {
 
                                 Text(
                                     text = tech,
                                     modifier = Modifier.padding(
-                                        horizontal = 12.dp,
-                                        vertical = 6.dp
+                                        vertical = 8.dp,
+                                        horizontal = 10.dp
                                     ),
-                                    style = MaterialTheme.typography.labelMedium
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(40.dp))
             }
+
+            item { Spacer(Modifier.height(40.dp)) }
         }
     }
+
+
 }

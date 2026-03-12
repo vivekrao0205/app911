@@ -1,12 +1,14 @@
 package com.nrikesari.app.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -20,28 +22,31 @@ fun ServiceCard(
     modifier: Modifier = Modifier
 ) {
 
+
     val colorScheme = MaterialTheme.colorScheme
     val icon = getServiceIcon(service.id)
 
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(14.dp),
         border = BorderStroke(
             1.dp,
             colorScheme.outlineVariant
-        )
+        ),
+        color = colorScheme.surface
     ) {
 
         Row(
             modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
 
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 color = colorScheme.primary.copy(alpha = 0.08f)
             ) {
 
@@ -50,12 +55,12 @@ fun ServiceCard(
                     contentDescription = service.title,
                     tint = colorScheme.primary,
                     modifier = Modifier
-                        .padding(10.dp)
-                        .size(26.dp)
+                        .padding(8.dp)
+                        .size(22.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(Modifier.width(12.dp))
 
             Column(
                 modifier = Modifier.weight(1f)
@@ -67,7 +72,7 @@ fun ServiceCard(
                     fontWeight = FontWeight.SemiBold
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
 
                 Text(
                     text = service.description,
@@ -77,18 +82,20 @@ fun ServiceCard(
             }
 
             Icon(
-                imageVector = Icons.Default.ArrowForwardIos,
-                contentDescription = "Open service",
-                tint = colorScheme.primary,
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp)
             )
         }
     }
+
 }
 
 /* -------- ICON MAPPER -------- */
 
 fun getServiceIcon(id: String): ImageVector {
+
 
     val normalized = id.trim().lowercase()
 
@@ -127,4 +134,6 @@ fun getServiceIcon(id: String): ImageVector {
         else ->
             Icons.Default.Build
     }
+
+
 }

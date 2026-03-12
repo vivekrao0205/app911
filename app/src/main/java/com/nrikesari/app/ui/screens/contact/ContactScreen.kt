@@ -46,6 +46,11 @@ fun ContactScreen(
 
     var isSending by remember { mutableStateOf(false) }
     var successMessage by remember { mutableStateOf<String?>(null) }
+    val isFormValid =
+        name.isNotBlank() &&
+                email.isNotBlank() &&
+                phone.isNotBlank() &&
+                description.isNotBlank()
 
     val scroll = rememberScrollState()
 
@@ -285,9 +290,10 @@ fun ContactScreen(
             )
 
             PrimaryButton(
-                text = if(isSending) "Sending..." else "Submit Inquiry",
-                onClick = { submitInquiry() },
-                modifier = Modifier.fillMaxWidth()
+                text = if (isSending) "Sending..." else "Submit Inquiry",
+                onClick = { if (isFormValid) submitInquiry() },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = isFormValid && !isSending
             )
         }
 
@@ -299,7 +305,7 @@ fun ContactScreen(
 
                 Text(
                     "Inquiry sent successfully!",
-                    color = Color(0xFF2E7D32),
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium
                 )
 

@@ -29,6 +29,30 @@ fun ServiceDetailScreen(
     val colorScheme = MaterialTheme.colorScheme
     val icon = getServiceIcon(service.id)
 
+    val priceEstimate = when(service.title){
+        "Video Editing" -> "₹2k – ₹30k"
+        "3D / VFX" -> "₹20k – ₹70k"
+        "Graphic Design" -> "₹1k – ₹20k"
+        "UI/UX" -> "₹5k – ₹50k"
+        "Web Development" -> "₹5k – ₹80k"
+        "App Development" -> "₹40k – ₹3L"
+        "Digital Marketing" -> "₹8k – ₹1L"
+        "Content Creation" -> "₹3k – ₹40k"
+        else -> "Custom Quote"
+    }
+
+    val timeline = when(service.title){
+        "Video Editing" -> "2 – 7 days"
+        "3D / VFX" -> "7 – 21 days"
+        "Graphic Design" -> "1 – 5 days"
+        "UI/UX" -> "5 – 14 days"
+        "Web Development" -> "7 – 30 days"
+        "App Development" -> "20 – 90 days"
+        "Digital Marketing" -> "Monthly campaign"
+        "Content Creation" -> "2 – 10 days"
+        else -> "Project Based"
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -36,50 +60,79 @@ fun ServiceDetailScreen(
             .padding(horizontal = 20.dp)
     ) {
 
-        Spacer(modifier = Modifier.height(36.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         /* -------- SERVICE ICON -------- */
 
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = colorScheme.primary.copy(alpha = 0.08f),
-            modifier = Modifier.size(60.dp)
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, colorScheme.outlineVariant),
+            color = colorScheme.surface,
+            modifier = Modifier.size(56.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = icon,
                     contentDescription = service.title,
                     tint = colorScheme.primary,
-                    modifier = Modifier.size(30.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         /* -------- TITLE -------- */
 
         Text(
             text = service.title,
             style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-            color = colorScheme.primary
+            fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Professional service designed to help your brand grow and scale.",
+            text = "Professional service designed to help your business grow and scale.",
             style = MaterialTheme.typography.bodyMedium,
             color = colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
+
+        /* -------- PRICE -------- */
+
+        SectionCard(
+            icon = Icons.Default.Payments,
+            title = "Estimated Pricing"
+        ) {
+            Text(
+                text = priceEstimate,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        /* -------- TIMELINE -------- */
+
+        SectionCard(
+            icon = Icons.Default.Schedule,
+            title = "Delivery Timeline"
+        ) {
+            Text(
+                text = timeline,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         /* -------- WHAT WE OFFER -------- */
 
         SectionCard(
-            icon = Icons.Default.Info,
+            icon = Icons.Default.DesignServices,
             title = "What we offer"
         ) {
             Text(
@@ -88,12 +141,12 @@ fun ServiceDetailScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         /* -------- BENEFITS -------- */
 
         SectionCard(
-            icon = Icons.Default.CheckCircle,
+            icon = Icons.Default.Star,
             title = "Benefits"
         ) {
 
@@ -101,7 +154,7 @@ fun ServiceDetailScreen(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(vertical = 6.dp)
+                    modifier = Modifier.padding(vertical = 4.dp)
                 ) {
 
                     Icon(
@@ -111,7 +164,7 @@ fun ServiceDetailScreen(
                         modifier = Modifier.size(18.dp)
                     )
 
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     Text(
                         text = benefit,
@@ -121,12 +174,12 @@ fun ServiceDetailScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         /* -------- WHY CHOOSE US -------- */
 
         SectionCard(
-            icon = Icons.Default.Star,
+            icon = Icons.Default.WorkspacePremium,
             title = "Why choose Nrikesari"
         ) {
             Text(
@@ -135,9 +188,9 @@ fun ServiceDetailScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(26.dp))
 
-        /* -------- CTA BUTTON -------- */
+        /* -------- CTA -------- */
 
         PrimaryButton(
             text = "Start This Service",
@@ -145,7 +198,7 @@ fun ServiceDetailScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
@@ -158,45 +211,38 @@ fun SectionCard(
 
     val colorScheme = MaterialTheme.colorScheme
 
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         border = BorderStroke(1.dp, colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        color = colorScheme.surface
     ) {
 
         Column(
-            modifier = Modifier.padding(18.dp)
+            modifier = Modifier.padding(16.dp)
         ) {
 
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
 
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = colorScheme.primary.copy(alpha = 0.08f)
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = colorScheme.primary,
-                        modifier = Modifier
-                            .padding(6.dp)
-                            .size(18.dp)
-                    )
-                }
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             content()
         }
