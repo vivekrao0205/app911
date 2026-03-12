@@ -150,21 +150,24 @@ fun AnimatedLogo() {
 
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.size(160.dp)
+            modifier = Modifier
+                .size(160.dp)
+                .clip(CircleShape) // ensures whole container is circle
         ) {
 
             Surface(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.matchParentSize(),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
             ) {}
 
             Image(
-                painter = painterResource(R.mipmap.icon),
+                painter = painterResource(id = R.drawable.icon2_foreground),
                 contentDescription = "Logo",
                 modifier = Modifier
-                    .size(160.dp)
-                    .clip(CircleShape),
+                    .matchParentSize()
+                    .clip(CircleShape) // clip image to circle
+                    .scale(1.6f),      // zoom image inside circle
                 contentScale = ContentScale.Crop
             )
         }

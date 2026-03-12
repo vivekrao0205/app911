@@ -9,15 +9,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.*
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -28,13 +24,13 @@ import kotlinx.coroutines.delay
 @Composable
 fun SplashScreen(navController: NavController) {
 
-    val textDark = Color(0xFF3E3E3E)
-    val subText = Color(0xFF6F6F6F)
-    val circleColor = Color(0xFFCFC6BD)
+    val textDark = Color(0xFF1C1C1C)   // deeper premium black
+    val subText = Color(0xFF7A7A7A)    // softer grey
+    val circleColor = Color(0xFFFFE0D6) // warm soft glow circle
 
     var startAnimation by remember { mutableStateOf(false) }
 
-    /* ---------- MAIN SCALE ---------- */
+    /* ---------- ENTRY SCALE ---------- */
 
     val scaleAnim by animateFloatAsState(
         targetValue = if (startAnimation) 1f else 0.85f,
@@ -50,48 +46,56 @@ fun SplashScreen(navController: NavController) {
         label = ""
     )
 
-    /* ---------- FLOAT ANIMATION ---------- */
+    /* ---------- FLOAT + PULSE ---------- */
 
-    val infiniteTransition = rememberInfiniteTransition(label = "")
+    val infinite = rememberInfiniteTransition(label = "")
 
-    val floatAnim by infiniteTransition.animateFloat(
-        initialValue = -6f,
-        targetValue = 6f,
+    val floatAnim by infinite.animateFloat(
+        initialValue = -8f,
+        targetValue = 8f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
+            tween(2600, easing = LinearEasing),
+            RepeatMode.Reverse
         ),
         label = ""
     )
 
-    /* ---------- PULSE GLOW ---------- */
-
-    val pulse by infiniteTransition.animateFloat(
+    val pulse by infinite.animateFloat(
         initialValue = 0.95f,
-        targetValue = 1.1f,
+        targetValue = 1.12f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
+            tween(2200, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse
         ),
         label = ""
     )
 
-    /* ---------- BACKGROUND GRADIENT ---------- */
+    val glow by infinite.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.45f,
+        animationSpec = infiniteRepeatable(
+            tween(2000),
+            RepeatMode.Reverse
+        ),
+        label = ""
+    )
+
+    /* ---------- BACKGROUND ---------- */
 
     val background = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFFF2EDEA),
+        listOf(
+            Color(0xFFFDFDFD),
             Color(0xFFF7F4F2)
         )
     )
 
-    /* ---------- START ---------- */
+    /* ---------- NAVIGATION ---------- */
 
     LaunchedEffect(Unit) {
 
         startAnimation = true
 
-        delay(2200)
+        delay(2000)
 
         navController.navigate(Screen.Home.route) {
             popUpTo(Screen.Splash.route) { inclusive = true }
@@ -112,36 +116,65 @@ fun SplashScreen(navController: NavController) {
                 .alpha(alphaAnim)
         ) {
 
-            /* ---------- LOGO ---------- */
+            /* ---------- LOGO AREA ---------- */
 
             Box(
-                modifier = Modifier
-                    .size(160.dp)
-                    .scale(pulse)
-                    .background(circleColor.copy(alpha = 0.25f), CircleShape),
+                modifier = Modifier.size(170.dp),
                 contentAlignment = Alignment.Center
             ) {
 
-                Image(
-                    painter = painterResource(id = R.mipmap.icon),
-                    contentDescription = "Nrikesari",
+                /* Glow layer */
+
+                Box(
                     modifier = Modifier
-                        .size(190.dp)
-                        .offset(y = floatAnim.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
+                        .matchParentSize()
+                        .scale(1.25f)
+                        .alpha(glow)
+                        .blur(50.dp)
+                        .background(
+                            Brush.radialGradient(
+                                listOf(
+                                    circleColor,
+                                    Color.Transparent
+                                )
+                            ),
+                            CircleShape
+                        )
                 )
+
+                /* Circle container */
+
+                Box(
+                    modifier = Modifier
+                        .size(160.dp)
+                        .scale(pulse)
+                        .clip(CircleShape)
+                        .background(circleColor.copy(alpha = 0.25f)),
+                    contentAlignment = Alignment.Center
+                ) {
+
+                    Image(
+                        painter = painterResource(R.drawable.icon_round),
+                        contentDescription = "Nrikesari",
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(CircleShape)
+                            .scale(1.55f)
+                            .offset(y = floatAnim.dp),
+                        contentScale = ContentScale.Crop
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(30.dp))
+            Spacer(modifier = Modifier.height(34.dp))
 
             /* ---------- TITLE ---------- */
 
             Text(
                 text = "N R I K E S A R I",
                 fontSize = 30.sp,
+                letterSpacing = 7.sp,
                 fontWeight = FontWeight.Medium,
-                letterSpacing = 6.sp,
                 fontFamily = FontFamily.Serif,
                 color = textDark
             )
@@ -153,7 +186,7 @@ fun SplashScreen(navController: NavController) {
             Text(
                 text = "Media & Technology",
                 fontSize = 14.sp,
-                letterSpacing = 2.sp,
+                letterSpacing = 2.5.sp,
                 fontFamily = FontFamily.SansSerif,
                 color = subText
             )

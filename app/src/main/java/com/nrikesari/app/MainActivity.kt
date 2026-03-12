@@ -14,27 +14,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
-import com.google.firebase.firestore.FirebaseFirestore
 import com.nrikesari.app.model.AppDatabase
 import com.nrikesari.app.model.PreferencesManager
 import com.nrikesari.app.navigation.NrikesariNavGraph
 import com.nrikesari.app.ui.theme.NrikesariTheme
-import com.nrikesari.app.viewmodel.*
+import com.nrikesari.app.viewmodel.AppRepository
+import com.nrikesari.app.viewmodel.AuthViewModel
+import com.nrikesari.app.viewmodel.MainViewModel
+import com.nrikesari.app.viewmodel.MainViewModelFactory
+import com.nrikesari.app.viewmodel.UserViewModel
 
 class MainActivity : ComponentActivity() {
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         enableEdgeToEdge()
-
-        // 🔹 Firebase test (remove later if not needed)
-        val db = FirebaseFirestore.getInstance()
-        val test = hashMapOf(
-            "name" to "Vivek",
-            "project" to "Nrikesari App"
-        )
-        db.collection("test").add(test)
 
         setContent {
 
@@ -44,12 +40,10 @@ class MainActivity : ComponentActivity() {
                 PreferencesManager(context)
             }
 
-            // Dark Mode State
             val isDarkMode by preferencesManager
                 .darkModeFlow
                 .collectAsState(initial = true)
 
-            // Theme Color State
             val themeColor by preferencesManager
                 .themeColorFlow
                 .collectAsState(initial = "Default")
@@ -86,4 +80,5 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 }
