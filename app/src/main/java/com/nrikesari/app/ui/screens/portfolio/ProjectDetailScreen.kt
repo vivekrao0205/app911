@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 import com.nrikesari.app.model.PortfolioProject
 import com.nrikesari.app.navigation.Screen
 import com.nrikesari.app.viewmodel.AuthViewModel
@@ -28,6 +29,7 @@ fun ProjectDetailScreen(
     authViewModel: AuthViewModel
 ) {
 
+    val currentUser = FirebaseAuth.getInstance().currentUser
 
     Scaffold(
 
@@ -48,11 +50,13 @@ fun ProjectDetailScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    if (authViewModel.currentUserProfile.value != null) {
+
+                    if (currentUser != null) {
                         navController.navigate("chat/${project.id}")
                     } else {
                         navController.navigate(Screen.Login.route)
                     }
+
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
@@ -70,7 +74,7 @@ fun ProjectDetailScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
 
-            /* -------- HERO SECTION -------- */
+            /* HERO SECTION */
 
             item {
 
@@ -89,7 +93,7 @@ fun ProjectDetailScreen(
                 )
             }
 
-            /* -------- CONTENT -------- */
+            /* CONTENT */
 
             item {
 
@@ -165,7 +169,7 @@ fun ProjectDetailScreen(
                 }
             }
 
-            /* -------- TECH STACK GRID -------- */
+            /* TECH STACK GRID */
 
             if (project.techStack.isNotEmpty()) {
 
@@ -211,6 +215,4 @@ fun ProjectDetailScreen(
             item { Spacer(Modifier.height(40.dp)) }
         }
     }
-
-
 }

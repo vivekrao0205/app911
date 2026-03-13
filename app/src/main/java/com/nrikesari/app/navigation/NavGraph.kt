@@ -215,7 +215,7 @@ fun NrikesariNavGraph(
             }
 
             composable(Screen.Signup.route) {
-                SignupScreen(navController, authViewModel)
+                SignupScreen(navController)
             }
         }
     }

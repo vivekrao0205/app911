@@ -12,7 +12,20 @@
           "package_name": "com.nrikesari.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "283024976713-gt0780n4rm5db7rnm56kemhnc8q99uhu.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nrikesari.app",
+            "certificate_hash": "4b519d2792e1c53ba96dc2187d5bee22cb8bd102"
+          }
+        },
+        {
+          "client_id": "283024976713-svishfb3k4gmv1nhcf90j02b76u96vo8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAp93tFfz2YEWAI7z-OAjOFA8SL1lIgy4w"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "283024976713-svishfb3k4gmv1nhcf90j02b76u96vo8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.google.firebase.auth.FirebaseAuth
 import com.nrikesari.app.model.ProjectInquiry
 import com.nrikesari.app.viewmodel.AuthViewModel
 import com.nrikesari.app.viewmodel.UserViewModel
@@ -24,7 +25,7 @@ fun ProjectEnquiryScreen(
     userViewModel: UserViewModel
 ) {
 
-    val currentUserProfile by authViewModel.currentUserProfile.collectAsState()
+    val currentUser = FirebaseAuth.getInstance().currentUser
 
     var name by remember { mutableStateOf("") }
     var contact by remember { mutableStateOf("") }
@@ -48,7 +49,7 @@ fun ProjectEnquiryScreen(
 
     val complexityLevels = listOf("Simple", "Medium", "Advanced")
 
-    val priceEstimate = when(service){
+    val priceEstimate = when (service) {
         "Video Editing" -> "₹2k – ₹30k"
         "3D / VFX" -> "₹20k – ₹70k"
         "Graphic Design" -> "₹1k – ₹20k"
@@ -80,7 +81,7 @@ fun ProjectEnquiryScreen(
         Spacer(Modifier.height(32.dp))
 
         Text(
-            "Start a Project",
+            text = "Start a Project",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
@@ -89,13 +90,13 @@ fun ProjectEnquiryScreen(
         Spacer(Modifier.height(6.dp))
 
         Text(
-            "Nrikesari builds modern digital products.",
+            text = "Nrikesari builds modern digital products.",
             style = MaterialTheme.typography.bodyMedium
         )
 
         Spacer(Modifier.height(24.dp))
 
-        /* -------- SUCCESS MESSAGE -------- */
+        /* SUCCESS MESSAGE */
 
         if (successMessage) {
 
@@ -107,7 +108,7 @@ fun ProjectEnquiryScreen(
             ) {
 
                 Text(
-                    "✅ Inquiry submitted successfully! We will contact you soon.",
+                    text = "✅ Inquiry submitted successfully! We will contact you soon.",
                     modifier = Modifier.padding(16.dp),
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
@@ -217,7 +218,7 @@ fun ProjectEnquiryScreen(
         Button(
             onClick = {
 
-                val userId = currentUserProfile?.uid
+                val userId = currentUser?.uid
 
                 if (userId == null) {
                     errorMessage = "Please login first from Settings."
@@ -246,7 +247,6 @@ fun ProjectEnquiryScreen(
                 name = ""
                 contact = ""
                 description = ""
-
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -254,7 +254,7 @@ fun ProjectEnquiryScreen(
             shape = RoundedCornerShape(28.dp)
         ) {
 
-            Icon(Icons.Default.Send, null)
+            Icon(Icons.Default.Send, contentDescription = null)
 
             Spacer(Modifier.width(8.dp))
 

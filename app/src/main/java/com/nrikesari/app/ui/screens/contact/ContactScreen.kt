@@ -15,17 +15,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.nrikesari.app.viewmodel.AuthViewModel
 import com.nrikesari.app.ui.components.CustomTextField
 import com.nrikesari.app.ui.components.PrimaryButton
+import com.nrikesari.app.viewmodel.AuthViewModel
 
 @Composable
 fun ContactScreen(
@@ -36,7 +36,7 @@ fun ContactScreen(
     val context = LocalContext.current
     val firestore = FirebaseFirestore.getInstance()
 
-    val currentUserProfile by authViewModel.currentUserProfile.collectAsState()
+    val currentUser = FirebaseAuth.getInstance().currentUser
 
     var name by remember { mutableStateOf("") }
     var company by remember { mutableStateOf("") }
@@ -46,6 +46,7 @@ fun ContactScreen(
 
     var isSending by remember { mutableStateOf(false) }
     var successMessage by remember { mutableStateOf<String?>(null) }
+
     val isFormValid =
         name.isNotBlank() &&
                 email.isNotBlank() &&
@@ -71,6 +72,7 @@ fun ContactScreen(
         isSending = true
 
         val data = hashMapOf(
+            "userId" to currentUser?.uid,
             "name" to name,
             "company" to company,
             "email" to email,
@@ -107,7 +109,7 @@ fun ContactScreen(
             .padding(20.dp)
     ) {
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(Modifier.height(20.dp))
 
         Text(
             "NRIKESARI",
@@ -121,44 +123,36 @@ fun ContactScreen(
             style = MaterialTheme.typography.bodyMedium
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(Modifier.height(24.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
 
-            DashboardItem(Icons.Default.Call,"Call"){ callNow() }
-
-            DashboardItem(Icons.Default.Email,"Email"){ sendEmail() }
-
-            DashboardItem(Icons.Default.Language,"Website"){
-                openLink("https://nrikesari.in")
-            }
-
-            DashboardItem(Icons.Default.CameraAlt,"Instagram"){
-                openLink("https://instagram.com/nrikesari")
-            }
+            DashboardItem(Icons.Default.Call, "Call") { callNow() }
+            DashboardItem(Icons.Default.Email, "Email") { sendEmail() }
+            DashboardItem(Icons.Default.Language, "Website") { openLink("https://nrikesari.in") }
+            DashboardItem(Icons.Default.CameraAlt, "Instagram") { openLink("https://instagram.com/nrikesari") }
         }
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(Modifier.height(30.dp))
 
         Card(
             shape = RoundedCornerShape(14.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        ){
+        ) {
 
             ContactRow(
                 Icons.Default.LocationOn,
                 "Our Location",
                 "Open in Google Maps"
-            ){
+            ) {
                 openLink("https://www.google.com/maps/@17.6364829,78.4860126,17z")
             }
-
         }
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(Modifier.height(30.dp))
 
         Text(
             "Dashboard",
@@ -166,37 +160,35 @@ fun ContactScreen(
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(Modifier.height(14.dp))
 
         Card(
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        ){
+        ) {
 
             Column(modifier = Modifier.padding(18.dp)) {
 
-                /* LOGIN / PROFILE */
-
-                if (currentUserProfile != null) {
+                if (currentUser != null) {
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
-                    ){
+                    ) {
 
-                        Icon(Icons.Default.AccountCircle,null)
+                        Icon(Icons.Default.AccountCircle, null)
 
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(Modifier.width(10.dp))
 
-                        Column(modifier = Modifier.weight(1f)){
+                        Column(modifier = Modifier.weight(1f)) {
 
                             Text(
-                                currentUserProfile!!.name,
+                                currentUser.displayName ?: "User",
                                 fontWeight = FontWeight.Bold
                             )
 
                             Text(
-                                currentUserProfile!!.email,
+                                currentUser.email ?: "",
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -209,7 +201,7 @@ fun ContactScreen(
 
                                 authViewModel.logout()
 
-                                navController.navigate("login"){
+                                navController.navigate("login") {
                                     popUpTo(0)
                                 }
                             }
@@ -221,51 +213,47 @@ fun ContactScreen(
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.fillMaxWidth()
-                    ){
+                    ) {
 
                         Button(
                             onClick = { navController.navigate("login") },
                             modifier = Modifier.weight(1f)
-                        ){
-                            Text("Login")
-                        }
+                        ) { Text("Login") }
 
                         OutlinedButton(
                             onClick = { navController.navigate("signup") },
                             modifier = Modifier.weight(1f)
-                        ){
-                            Text("Sign Up")
-                        }
+                        ) { Text("Sign Up") }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(Modifier.height(20.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
-                ){
+                ) {
 
-                    DashboardItem(Icons.Default.Event,"Book"){
+                    DashboardItem(Icons.Default.Event, "Book") {
                         navController.navigate("book_call")
                     }
 
-                    DashboardItem(Icons.Default.Star,"Review"){
+                    DashboardItem(Icons.Default.Star, "Review") {
                         navController.navigate("write_review")
                     }
 
-                    DashboardItem(Icons.Default.Work,"My Projects"){
+                    DashboardItem(Icons.Default.Work, "My Projects") {
                         navController.navigate("my_projects")
                     }
 
-                    DashboardItem(Icons.Default.Settings,"Settings"){
+                    DashboardItem(Icons.Default.Settings, "Settings") {
                         navController.navigate("settings")
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(Modifier.height(30.dp))
 
         Text(
             "Send a Message",
@@ -273,14 +261,14 @@ fun ContactScreen(
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(Modifier.height(16.dp))
 
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
 
-            CustomTextField(name,{name=it},"Name")
-            CustomTextField(company,{company=it},"Company (Optional)")
-            CustomTextField(email,{email=it},"Email")
-            CustomTextField(phone,{phone=it},"Phone")
+            CustomTextField(name, { name = it }, "Name")
+            CustomTextField(company, { company = it }, "Company (Optional)")
+            CustomTextField(email, { email = it }, "Email")
+            CustomTextField(phone, { phone = it }, "Phone")
 
             CustomTextField(
                 value = description,
@@ -297,11 +285,11 @@ fun ContactScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(Modifier.height(30.dp))
 
         successMessage?.let {
 
-            if(it == "success"){
+            if (it == "success") {
 
                 Text(
                     "Inquiry sent successfully!",
@@ -309,7 +297,7 @@ fun ContactScreen(
                     fontWeight = FontWeight.Medium
                 )
 
-            }else{
+            } else {
 
                 Text(
                     "Failed to send inquiry",
@@ -318,7 +306,7 @@ fun ContactScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(Modifier.height(40.dp))
     }
 }
 
@@ -327,17 +315,17 @@ fun DashboardItem(
     icon: ImageVector,
     text: String,
     onClick: () -> Unit
-){
+) {
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clickable { onClick() }
-    ){
+    ) {
 
         Surface(
             shape = RoundedCornerShape(14.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        ){
+        ) {
 
             Icon(
                 icon,
@@ -347,7 +335,7 @@ fun DashboardItem(
             )
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(Modifier.height(6.dp))
 
         Text(
             text,
@@ -362,7 +350,7 @@ fun ContactRow(
     title: String,
     subtitle: String,
     onClick: () -> Unit
-){
+) {
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -370,13 +358,13 @@ fun ContactRow(
             .fillMaxWidth()
             .clickable { onClick() }
             .padding(16.dp)
-    ){
+    ) {
 
-        Icon(icon,null,tint = MaterialTheme.colorScheme.primary)
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(Modifier.width(12.dp))
 
-        Column(modifier = Modifier.weight(1f)){
+        Column(modifier = Modifier.weight(1f)) {
 
             Text(title, fontWeight = FontWeight.SemiBold)
 
@@ -387,6 +375,6 @@ fun ContactRow(
             )
         }
 
-        Icon(Icons.Default.ChevronRight,null)
+        Icon(Icons.Default.ChevronRight, null)
     }
 }

@@ -34,12 +34,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
 
     buildFeatures {
@@ -59,55 +59,72 @@ android {
 
 dependencies {
 
-    // Core
+    /* ---------------- CORE ---------------- */
+
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.activity:activity-compose:1.9.0")
 
-    // Compose BOM
+    /* ---------------- COMPOSE ---------------- */
+
     implementation(platform("androidx.compose:compose-bom:2024.02.01"))
 
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("com.google.firebase:firebase-crashlytics-buildtools:3.0.6")
+    implementation("com.google.android.gms:play-services-fido:20.0.1")
 
-    // Navigation
+    debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    /* ---------------- NAVIGATION ---------------- */
+
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
-    // ViewModel
+    /* ---------------- VIEWMODEL ---------------- */
+
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
 
-    // Icons
+    /* ---------------- ICONS ---------------- */
+
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Coil (Image loading)
+    /* ---------------- IMAGE LOADING ---------------- */
+
     implementation("io.coil-kt:coil-compose:2.5.0")
 
-    // Room Database
-    val room_version = "2.6.1"
-    implementation("androidx.room:room-runtime:$room_version")
-    implementation("androidx.room:room-ktx:$room_version")
-    ksp("androidx.room:room-compiler:$room_version")
+    /* ---------------- ROOM DATABASE ---------------- */
 
-    // DataStore
+    val roomVersion = "2.6.1"
+
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
+
+    /* ---------------- DATASTORE ---------------- */
+
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
-    // ---------------- Firebase ----------------
+    /* ---------------- FIREBASE ---------------- */
 
     implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
 
-    implementation("com.google.firebase:firebase-auth")
-    implementation("com.google.firebase:firebase-firestore")
-    implementation("com.google.firebase:firebase-storage")
-    implementation("com.google.firebase:firebase-messaging")
-    implementation("com.google.android.gms:play-services-auth:20.7.0")
-    implementation("com.google.firebase:firebase-firestore-ktx:24.10.3")
-    implementation("com.google.firebase:firebase-auth-ktx:22.3.1")
-    // Coroutine support for Firebase
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-storage-ktx")
+    implementation("com.google.firebase:firebase-messaging-ktx")
+
+    /* ---------------- GOOGLE SIGN IN ---------------- */
+
+    implementation("com.google.android.gms:play-services-auth:21.0.0")
+
+    /* ---------------- COROUTINES ---------------- */
+
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
-    // ---------------- Testing ----------------
+    /* ---------------- TESTING ---------------- */
 
     testImplementation("junit:junit:4.13.2")
 
@@ -116,7 +133,4 @@ dependencies {
 
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.01"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

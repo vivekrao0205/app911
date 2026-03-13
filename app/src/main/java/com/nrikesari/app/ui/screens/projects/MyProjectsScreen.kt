@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 import com.nrikesari.app.model.ProjectInquiry
 import com.nrikesari.app.viewmodel.AuthViewModel
 import com.nrikesari.app.viewmodel.UserProjectsState
@@ -32,13 +33,13 @@ fun MyProjectsScreen(
     userViewModel: UserViewModel
 ) {
 
-    val currentUserProfile by authViewModel.currentUserProfile.collectAsState()
+    val currentUser = FirebaseAuth.getInstance().currentUser
     val projectsState by userViewModel.projectsState.collectAsState()
 
-    /* Fetch user inquiries from Firebase */
+    /* Fetch user inquiries */
 
-    LaunchedEffect(currentUserProfile?.uid) {
-        currentUserProfile?.uid?.let {
+    LaunchedEffect(currentUser?.uid) {
+        currentUser?.uid?.let {
             userViewModel.fetchUserProjects(it)
         }
     }
@@ -84,16 +85,12 @@ fun MyProjectsScreen(
 
             when {
 
-                /* Loading */
-
                 isLoading -> {
 
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
-
-                /* Empty state */
 
                 projects.isEmpty() -> {
 
@@ -119,8 +116,6 @@ fun MyProjectsScreen(
                         )
                     }
                 }
-
-                /* Show inquiries */
 
                 else -> {
 
@@ -181,8 +176,6 @@ fun ProjectStatusCard(
             modifier = Modifier.padding(18.dp)
         ) {
 
-            /* Header */
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -216,8 +209,6 @@ fun ProjectStatusCard(
 
             Spacer(Modifier.height(10.dp))
 
-            /* Description */
-
             Text(
                 text = project.description,
                 style = MaterialTheme.typography.bodyMedium,
@@ -225,8 +216,6 @@ fun ProjectStatusCard(
             )
 
             Spacer(Modifier.height(14.dp))
-
-            /* Footer */
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

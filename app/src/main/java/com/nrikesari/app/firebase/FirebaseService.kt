@@ -2,8 +2,9 @@ package com.nrikesari.app.firebase
 
 import android.net.Uri
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.nrikesari.app.model.*
 import kotlinx.coroutines.tasks.await
@@ -14,6 +15,12 @@ class FirebaseService {
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
     private val storage = FirebaseStorage.getInstance()
+
+    private val users = firestore.collection("users")
+    private val inquiries = firestore.collection("inquiries")
+    private val bookings = firestore.collection("bookings")
+    private val testimonials = firestore.collection("testimonials")
+    private val messages = firestore.collection("messages")
 
     // ---------------- AUTH ----------------
 
@@ -57,10 +64,26 @@ class FirebaseService {
                 "createdAt" to FieldValue.serverTimestamp()
             )
 
-            firestore.collection("users")
-                .document(uid)
-                .set(userData)
-                .await()
+            users.document(uid).set(userData).await()
+
+            Result.success(Unit)
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun loginWithGoogle(idToken: String): Result<Unit> {
+        return try {
+
+            val credential = GoogleAuthProvider.getCredential(idToken, null)
+
+            auth.signInWithCredential(credential).await()
+
+            val uid = auth.currentUser?.uid
+                ?: return Result.failure(Exception("User not found"))
+
+            ensureUserProfile(uid)
 
             Result.success(Unit)
 
@@ -76,13 +99,9 @@ class FirebaseService {
     // ---------------- USER PROFILE ----------------
 
     suspend fun getUserProfile(uid: String): Result<User?> {
-
         return try {
 
-            val doc = firestore.collection("users")
-                .document(uid)
-                .get()
-                .await()
+            val doc = users.document(uid).get().await()
 
             val user = doc.toObject(User::class.java)
 
@@ -95,10 +114,7 @@ class FirebaseService {
 
     private suspend fun ensureUserProfile(uid: String) {
 
-        val doc = firestore.collection("users")
-            .document(uid)
-            .get()
-            .await()
+        val doc = users.document(uid).get().await()
 
         if (!doc.exists()) {
 
@@ -112,17 +128,13 @@ class FirebaseService {
                 "createdAt" to FieldValue.serverTimestamp()
             )
 
-            firestore.collection("users")
-                .document(uid)
-                .set(userData)
-                .await()
+            users.document(uid).set(userData).await()
         }
     }
 
     // ---------------- PROJECT INQUIRY ----------------
 
     suspend fun submitProjectInquiry(inquiry: ProjectInquiry): Result<Unit> {
-
         return try {
 
             val id = if (inquiry.id.isBlank())
@@ -131,10 +143,7 @@ class FirebaseService {
 
             val newInquiry = inquiry.copy(id = id)
 
-            firestore.collection("inquiries")
-                .document(id)
-                .set(newInquiry)
-                .await()
+            inquiries.document(id).set(newInquiry).await()
 
             Result.success(Unit)
 
@@ -144,10 +153,9 @@ class FirebaseService {
     }
 
     suspend fun getUserProjects(userId: String): Result<List<ProjectInquiry>> {
-
         return try {
 
-            val snapshot = firestore.collection("inquiries")
+            val snapshot = inquiries
                 .whereEqualTo("userId", userId)
                 .get()
                 .await()
@@ -166,7 +174,6 @@ class FirebaseService {
     // ---------------- BOOKINGS ----------------
 
     suspend fun submitBooking(booking: Booking): Result<Unit> {
-
         return try {
 
             val id = if (booking.id.isBlank())
@@ -175,10 +182,7 @@ class FirebaseService {
 
             val newBooking = booking.copy(id = id)
 
-            firestore.collection("bookings")
-                .document(id)
-                .set(newBooking)
-                .await()
+            bookings.document(id).set(newBooking).await()
 
             Result.success(Unit)
 
@@ -190,7 +194,6 @@ class FirebaseService {
     // ---------------- TESTIMONIALS ----------------
 
     suspend fun submitTestimonial(testimonial: Testimonial): Result<Unit> {
-
         return try {
 
             val id = if (testimonial.id.isBlank())
@@ -202,10 +205,7 @@ class FirebaseService {
                 timestamp = System.currentTimeMillis()
             )
 
-            firestore.collection("testimonials")
-                .document(id)
-                .set(newTestimonial)
-                .await()
+            testimonials.document(id).set(newTestimonial).await()
 
             Result.success(Unit)
 
@@ -215,10 +215,9 @@ class FirebaseService {
     }
 
     suspend fun getTestimonials(): Result<List<Testimonial>> {
-
         return try {
 
-            val snapshot = firestore.collection("testimonials")
+            val snapshot = testimonials
                 .orderBy("timestamp")
                 .get()
                 .await()
@@ -237,7 +236,6 @@ class FirebaseService {
     // ---------------- CHAT ----------------
 
     suspend fun sendMessage(message: ChatMessage): Result<Unit> {
-
         return try {
 
             val id = if (message.id.isBlank())
@@ -246,10 +244,7 @@ class FirebaseService {
 
             val newMessage = message.copy(id = id)
 
-            firestore.collection("messages")
-                .document(id)
-                .set(newMessage)
-                .await()
+            messages.document(id).set(newMessage).await()
 
             Result.success(Unit)
 
@@ -259,10 +254,9 @@ class FirebaseService {
     }
 
     suspend fun getChatMessages(projectId: String): Result<List<ChatMessage>> {
-
         return try {
 
-            val snapshot = firestore.collection("messages")
+            val snapshot = messages
                 .whereEqualTo("projectId", projectId)
                 .get()
                 .await()
@@ -281,13 +275,11 @@ class FirebaseService {
     // ---------------- FILE UPLOAD ----------------
 
     suspend fun uploadFile(uri: Uri, folder: String): Result<String> {
-
         return try {
 
             val fileName = UUID.randomUUID().toString()
 
-            val ref = storage.reference
-                .child("$folder/$fileName")
+            val ref = storage.reference.child("$folder/$fileName")
 
             ref.putFile(uri).await()
 
@@ -300,3 +292,4 @@ class FirebaseService {
         }
     }
 }
+

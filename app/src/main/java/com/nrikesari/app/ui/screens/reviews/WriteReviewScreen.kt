@@ -1,7 +1,6 @@
 package com.nrikesari.app.ui.screens.reviews
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 import com.nrikesari.app.model.Testimonial
 import com.nrikesari.app.viewmodel.AuthViewModel
 import com.nrikesari.app.viewmodel.SubmissionState
@@ -33,7 +33,8 @@ fun WriteReviewScreen(
     userViewModel: UserViewModel
 ) {
 
-    val currentUserProfile by authViewModel.currentUserProfile.collectAsState()
+    val currentUser = FirebaseAuth.getInstance().currentUser
+
     val submissionState by userViewModel.submissionState.collectAsState()
     val reviews by userViewModel.reviews.collectAsState()
 
@@ -152,7 +153,7 @@ fun WriteReviewScreen(
                 Button(
                     onClick = {
 
-                        if (currentUserProfile == null) {
+                        if (currentUser == null) {
                             errorMessage = "Please login first"
                             return@Button
                         }
@@ -164,7 +165,7 @@ fun WriteReviewScreen(
 
                         val testimonial = Testimonial(
                             id = UUID.randomUUID().toString(),
-                            clientName = currentUserProfile?.name ?: "Anonymous",
+                            clientName = currentUser.displayName ?: "Anonymous",
                             serviceType = serviceType,
                             feedback = feedback,
                             rating = rating.toFloat(),
@@ -183,11 +184,14 @@ fun WriteReviewScreen(
                 ) {
 
                     if (isSubmitting) {
+
                         CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),
                             color = Color.White
                         )
+
                     } else {
+
                         Text("Submit Review")
                     }
                 }

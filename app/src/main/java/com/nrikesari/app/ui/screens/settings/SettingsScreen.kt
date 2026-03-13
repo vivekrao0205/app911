@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 import com.nrikesari.app.model.PreferencesManager
 import com.nrikesari.app.navigation.Screen
 import com.nrikesari.app.viewmodel.AuthViewModel
@@ -41,7 +42,7 @@ fun SettingsScreen(
 
     val coroutineScope = rememberCoroutineScope()
 
-    val currentUserProfile by authViewModel.currentUserProfile.collectAsState()
+    val currentUser = FirebaseAuth.getInstance().currentUser
 
     var notificationsEnabled by remember { mutableStateOf(true) }
     var promoEnabled by remember { mutableStateOf(false) }
@@ -54,28 +55,27 @@ fun SettingsScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp)
+            .padding(20.dp)
     ) {
 
         Spacer(Modifier.height(40.dp))
 
         Text(
-            text = "Settings & Profile",
+            "Settings & Profile",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
 
-        Text(
-            text = "Manage your account and app preferences",
-            style = MaterialTheme.typography.bodyMedium
-        )
+        Text("Manage your account and preferences")
 
         Spacer(Modifier.height(28.dp))
 
-        currentUserProfile?.let { user ->
+        /* USER SECTION */
+
+        if (currentUser != null) {
 
             SectionTitle("Dashboard")
 
@@ -83,15 +83,17 @@ fun SettingsScreen(
 
                 SettingsItem(
                     icon = Icons.Default.AccountCircle,
-                    title = user.name,
-                    subtitle = user.email,
+                    title = currentUser.displayName ?: "User",
+                    subtitle = currentUser.email ?: "",
                     trailing = {
                         Text(
                             "Logout",
                             color = MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.clickable {
+
                                 authViewModel.logout()
+
                                 navController.navigate(Screen.Login.route) {
                                     popUpTo(0)
                                 }
@@ -105,7 +107,7 @@ fun SettingsScreen(
                 SettingsItem(
                     icon = Icons.Default.Workspaces,
                     title = "My Projects",
-                    subtitle = "View your project status",
+                    subtitle = "View your projects",
                     trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
                     onClick = { navController.navigate(Screen.MyProjects.route) }
                 )
@@ -115,20 +117,20 @@ fun SettingsScreen(
                 SettingsItem(
                     icon = Icons.Default.Event,
                     title = "Book a Call",
-                    subtitle = "Schedule a consultation",
+                    subtitle = "Schedule consultation",
                     trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
                     onClick = { navController.navigate(Screen.BookCall.route) }
                 )
             }
 
-        } ?: run {
+        } else {
 
             SettingsCard {
 
                 SettingsItem(
                     icon = Icons.Default.Login,
                     title = "Login / Sign Up",
-                    subtitle = "Sign in to manage your projects",
+                    subtitle = "Access your projects",
                     trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
                     onClick = { navController.navigate(Screen.Login.route) }
                 )
@@ -136,6 +138,8 @@ fun SettingsScreen(
         }
 
         Spacer(Modifier.height(28.dp))
+
+        /* APPEARANCE */
 
         SectionTitle("Appearance")
 
@@ -168,7 +172,9 @@ fun SettingsScreen(
             )
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(24.dp))
+
+        /* NOTIFICATIONS */
 
         SectionTitle("Notifications")
 
@@ -177,7 +183,7 @@ fun SettingsScreen(
             SettingsItem(
                 icon = Icons.Default.Notifications,
                 title = "Push Notifications",
-                subtitle = "Receive updates and alerts",
+                subtitle = "Receive updates",
                 trailing = {
                     Switch(
                         checked = notificationsEnabled,
@@ -191,7 +197,7 @@ fun SettingsScreen(
             SettingsItem(
                 icon = Icons.Default.NotificationsActive,
                 title = "Promotional Alerts",
-                subtitle = "Offers & announcements",
+                subtitle = "Offers and announcements",
                 trailing = {
                     Switch(
                         checked = promoEnabled,
@@ -201,7 +207,9 @@ fun SettingsScreen(
             )
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(24.dp))
+
+        /* APPLICATION */
 
         SectionTitle("Application")
 
@@ -220,7 +228,7 @@ fun SettingsScreen(
             SettingsItem(
                 icon = Icons.Default.PrivacyTip,
                 title = "Privacy Policy",
-                subtitle = "View privacy policy",
+                subtitle = "View policy",
                 trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
                 onClick = { showPrivacyDialog = true }
             )
@@ -244,8 +252,10 @@ fun SettingsScreen(
             )
         }
 
-        Spacer(Modifier.height(30.dp))
+        Spacer(Modifier.height(40.dp))
     }
+
+    /* THEME DIALOG */
 
     if (showThemeDialog) {
 
@@ -299,16 +309,43 @@ fun SettingsScreen(
         )
     }
 
+    /* ABOUT APP */
+
     if (showAboutDialog) {
 
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
             title = { Text("About Nrikesari") },
+
             text = {
-                Text(
-                    "Nrikesari builds modern digital solutions including apps and websites to help businesses grow."
-                )
+
+                Column {
+
+                    Text(
+                        "Nrikesari is a digital solutions platform focused on building modern websites, mobile apps, and creative digital products for businesses."
+                    )
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Text(
+                        "This app allows clients to explore our portfolio, start project discussions, submit inquiries, and communicate directly with our team."
+                    )
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Text(
+                        "Our mission is to simplify digital collaboration and help businesses grow with reliable technology solutions."
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Text(
+                        "Version 1.0.0",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             },
+
             confirmButton = {
                 TextButton(onClick = { showAboutDialog = false }) {
                     Text("OK")
@@ -317,16 +354,42 @@ fun SettingsScreen(
         )
     }
 
+    /* PRIVACY POLICY */
+
     if (showPrivacyDialog) {
 
         AlertDialog(
             onDismissRequest = { showPrivacyDialog = false },
             title = { Text("Privacy Policy") },
+
             text = {
-                Text(
-                    "Your privacy is important to us. Nrikesari collects only necessary information to provide services. Your data is never sold or shared without consent."
-                )
+
+                Column {
+
+                    Text(
+                        "Nrikesari respects your privacy and is committed to protecting your personal information."
+                    )
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Text(
+                        "We collect only the information required to provide services such as project inquiries, discussions, and support requests."
+                    )
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Text(
+                        "Your data is securely handled and is never sold, rented, or shared with third parties."
+                    )
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Text(
+                        "Authentication and account security are managed using Firebase services."
+                    )
+                }
             },
+
             confirmButton = {
                 TextButton(onClick = { showPrivacyDialog = false }) {
                     Text("OK")
@@ -334,12 +397,13 @@ fun SettingsScreen(
             }
         )
     }
-
-
 }
+
+/* COMPONENTS */
 
 @Composable
 fun SectionTitle(text: String) {
+
     Text(
         text = text,
         style = MaterialTheme.typography.titleMedium,
@@ -350,11 +414,13 @@ fun SectionTitle(text: String) {
 
 @Composable
 fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+
     Card(
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
+
         Column(
             modifier = Modifier.padding(vertical = 6.dp),
             content = content
@@ -368,9 +434,8 @@ fun SettingsItem(
     title: String,
     subtitle: String,
     onClick: (() -> Unit)? = null,
-    trailing: @Composable (() -> Unit)
+    trailing: @Composable () -> Unit
 ) {
-
 
     Row(
         modifier = Modifier
@@ -380,23 +445,16 @@ fun SettingsItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
 
-        Icon(
-            imageVector = icon,
-            contentDescription = title,
-            tint = MaterialTheme.colorScheme.primary
-        )
+        Icon(icon, title, tint = MaterialTheme.colorScheme.primary)
 
         Spacer(Modifier.width(16.dp))
 
         Column(modifier = Modifier.weight(1f)) {
 
-            Text(
-                text = title,
-                fontWeight = FontWeight.SemiBold
-            )
+            Text(title, fontWeight = FontWeight.SemiBold)
 
             Text(
-                text = subtitle,
+                subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
             )

@@ -1,11 +1,11 @@
 package com.nrikesari.app.ui.screens.auth
 
-import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,15 +16,13 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+
+import com.nrikesari.app.navigation.Screen
 import com.nrikesari.app.viewmodel.AuthViewModel
 import com.nrikesari.app.viewmodel.AuthState
-import com.nrikesari.app.navigation.Screen
-import com.nrikesari.app.ui.components.PrimaryButton
-
-import com.google.android.gms.auth.api.signin.*
-import com.google.android.gms.common.api.ApiException
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.GoogleAuthProvider
 
 @Composable
 fun LoginScreen(
@@ -33,8 +31,6 @@ fun LoginScreen(
 ) {
 
     val context = LocalContext.current
-    val activity = context as Activity
-
     val authState by authViewModel.authState.collectAsState()
 
     var email by remember { mutableStateOf("") }
@@ -43,42 +39,47 @@ fun LoginScreen(
 
     val isLoading = authState is AuthState.Loading
 
-    // Google Sign-In configuration
-    val googleSignInClient = remember {
+    /* -------- GOOGLE SIGN IN CLIENT -------- */
+
+    val googleClient = remember {
 
         val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken("YOUR_WEB_CLIENT_ID")
+            .requestIdToken(
+                "283024976713-svishfb3k4gmv1nhcf90j02b76u96vo8.apps.googleusercontent.com"
+            )
             .requestEmail()
             .build()
 
         GoogleSignIn.getClient(context, options)
     }
 
+    /* -------- GOOGLE SIGN IN RESULT -------- */
+
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
 
-        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        val data = result.data ?: return@rememberLauncherForActivityResult
+
+        val task = GoogleSignIn.getSignedInAccountFromIntent(data)
 
         try {
 
             val account = task.getResult(ApiException::class.java)
+            val token = account.idToken
 
-            val credential = GoogleAuthProvider.getCredential(account.idToken, null)
-
-            FirebaseAuth.getInstance()
-                .signInWithCredential(credential)
-                .addOnSuccessListener {
-
-                    navController.navigate(Screen.Settings.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
-                    }
-                }
+            if (token != null) {
+                authViewModel.loginWithGoogle(token)
+            } else {
+                errorMessage = "Google token missing"
+            }
 
         } catch (e: Exception) {
-            errorMessage = e.message
+            errorMessage = "Google login failed"
         }
     }
+
+    /* -------- AUTH STATE LISTENER -------- */
 
     LaunchedEffect(authState) {
 
@@ -87,7 +88,12 @@ fun LoginScreen(
             is AuthState.Authenticated -> {
 
                 navController.navigate(Screen.Settings.route) {
-                    popUpTo(Screen.Login.route) { inclusive = true }
+
+                    popUpTo(Screen.Login.route) {
+                        inclusive = true
+                    }
+
+                    launchSingleTop = true
                 }
             }
 
@@ -101,53 +107,51 @@ fun LoginScreen(
         }
     }
 
+    /* -------- UI -------- */
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
         Text(
-            text = "Welcome Back",
+            text = "Nrikesari",
             style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Login to manage your projects",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(40.dp))
 
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = {
+                email = it
+                errorMessage = null
+            },
             label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
             value = password,
-            onValueChange = { password = it },
+            onValueChange = {
+                password = it
+                errorMessage = null
+            },
             label = { Text("Password") },
             visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            modifier = Modifier.fillMaxWidth()
         )
 
         errorMessage?.let {
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = it,
@@ -157,50 +161,70 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        PrimaryButton(
-            text = if (isLoading) "Logging in..." else "Login",
+        Button(
             onClick = {
 
                 if (email.isBlank() || password.isBlank()) {
-                    errorMessage = "Please enter email and password"
-                    return@PrimaryButton
+                    errorMessage = "Enter email and password"
+                    return@Button
                 }
 
-                authViewModel.login(email.trim(), password.trim())
+                authViewModel.login(
+                    email.trim(),
+                    password.trim()
+                )
             },
-            modifier = Modifier.fillMaxWidth().height(55.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(55.dp),
+            shape = RoundedCornerShape(12.dp),
             enabled = !isLoading
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Google Sign-In Button
-        OutlinedButton(
-            onClick = {
-
-                val signInIntent = googleSignInClient.signInIntent
-                launcher.launch(signInIntent)
-
-            },
-            modifier = Modifier.fillMaxWidth().height(55.dp)
         ) {
 
-            Text("Sign in with Google")
+            if (isLoading) {
+
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+
+            } else {
+
+                Text("Login")
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Divider()
 
-            Text("Don't have an account?")
+        Spacer(modifier = Modifier.height(24.dp))
 
-            Spacer(modifier = Modifier.width(4.dp))
+        OutlinedButton(
+            onClick = {
+                launcher.launch(googleClient.signInIntent)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(55.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+
+            Text("Continue with Google")
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Row {
+
+            Text("Don't have an account? ")
 
             Text(
-                "Sign up",
-                color = MaterialTheme.colorScheme.primary,
+                text = "Sign up",
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.clickable {
+
                     navController.navigate(Screen.Signup.route)
                 }
             )
