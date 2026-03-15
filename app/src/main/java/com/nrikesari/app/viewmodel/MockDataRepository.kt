@@ -154,17 +154,5 @@ object MockDataRepository {
         )
     )
 
-    fun getTeam(): List<TeamMember> = listOf(
 
-        TeamMember(
-            "1",
-            "Vishnu",
-            "Founder",
-            "https://media.licdn.com/dms/image/v2/D4E03AQGVYQpQlHtKtw/profile-displayphoto-crop_800_800/B4EZwQH2T2GcAM-/0/1769797019946?e=1775088000&v=beta&t=vRH2h600uOmcsTV435n724letReH7P1G2Nawahspl-E"
-        ),
-
-        TeamMember("2", "Anil", "Developer", ""),
-        TeamMember("3", "Laxmi Sai", "Designer", ""),
-        TeamMember("4", "Shashikanth", "Marketing Strategist", "")
-    )
 }

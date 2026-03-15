@@ -34,14 +34,6 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     private val _team = MutableStateFlow<List<TeamMember>>(emptyList())
     val team: StateFlow<List<TeamMember>> = _team.asStateFlow()
 
-    init {
-        loadTeamData()
-        initializeDatabase()
-    }
-
-    private fun loadTeamData() {
-        _team.value = MockDataRepository.getTeam()
-    }
 
     private fun initializeDatabase() {
         viewModelScope.launch {
