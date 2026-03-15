@@ -1,5 +1,7 @@
 package com.nrikesari.app.ui.screens.projects
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -7,17 +9,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
+import com.nrikesari.app.firebase.FirebaseService
+import com.nrikesari.app.model.Booking
 import com.nrikesari.app.model.ProjectInquiry
 import com.nrikesari.app.viewmodel.AuthViewModel
 import com.nrikesari.app.viewmodel.UserProjectsState
@@ -33,14 +36,25 @@ fun MyProjectsScreen(
     userViewModel: UserViewModel
 ) {
 
+
+    val firebaseService = remember { FirebaseService() }
+
     val currentUser = FirebaseAuth.getInstance().currentUser
     val projectsState by userViewModel.projectsState.collectAsState()
 
-    /* Fetch user inquiries */
+    var bookings by remember { mutableStateOf<List<Booking>>(emptyList()) }
 
     LaunchedEffect(currentUser?.uid) {
-        currentUser?.uid?.let {
-            userViewModel.fetchUserProjects(it)
+
+        currentUser?.uid?.let { uid ->
+
+            userViewModel.fetchUserProjects(uid)
+
+            val bookingResult = firebaseService.getUserBookings(uid)
+
+            if (bookingResult.isSuccess) {
+                bookings = bookingResult.getOrDefault(emptyList())
+            }
         }
     }
 
@@ -52,25 +66,13 @@ fun MyProjectsScreen(
         topBar = {
 
             TopAppBar(
-                title = {
-                    Text(
-                        "My Discussions",
-                        fontWeight = FontWeight.Bold
-                    )
-                },
+                title = { Text("My Dashboard", fontWeight = FontWeight.Bold) },
 
                 navigationIcon = {
-
                     IconButton(onClick = { navController.popBackStack() }) {
-
                         Icon(Icons.Default.ArrowBack, null)
                     }
-                },
-
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.primary
-                )
+                }
             )
         }
 
@@ -79,8 +81,15 @@ fun MyProjectsScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.background,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.04f)
+                        )
+                    )
+                )
                 .padding(paddingValues)
-                .background(MaterialTheme.colorScheme.background)
         ) {
 
             when {
@@ -92,29 +101,9 @@ fun MyProjectsScreen(
                     )
                 }
 
-                projects.isEmpty() -> {
+                projects.isEmpty() && bookings.isEmpty() -> {
 
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-
-                        Icon(
-                            Icons.Default.Info,
-                            contentDescription = null,
-                            modifier = Modifier.size(56.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                        )
-
-                        Spacer(Modifier.height(12.dp))
-
-                        Text(
-                            "No discussions yet",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                        )
-                    }
+                    EmptyState()
                 }
 
                 else -> {
@@ -123,20 +112,102 @@ fun MyProjectsScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = 18.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
 
-                        item { Spacer(Modifier.height(8.dp)) }
+                        item { Spacer(Modifier.height(10.dp)) }
 
-                        items(projects) { project ->
+                        /* -------- HEADER CARD -------- */
 
-                            ProjectStatusCard(
-                                project = project,
-                                onChatClick = {
+                        item {
 
-                                    navController.navigate("chat/${project.id}")
+                            Card(
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
+                                )
+                            ) {
+
+                                Column(
+                                    modifier = Modifier.padding(20.dp)
+                                ) {
+
+                                    Text(
+                                        "Welcome back",
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+
+                                    Text(
+                                        "Track your projects and consultations here",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
-                            )
+                            }
+                        }
+
+                        /* -------- QUICK STATS -------- */
+
+                        item {
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+
+                                StatCard(
+                                    icon = Icons.Default.Work,
+                                    label = "Projects",
+                                    value = projects.size.toString()
+                                )
+
+                                StatCard(
+                                    icon = Icons.Default.Schedule,
+                                    label = "Calls",
+                                    value = bookings.size.toString()
+                                )
+                            }
+                        }
+
+                        /* -------- PROJECT DISCUSSIONS -------- */
+
+                        if (projects.isNotEmpty()) {
+
+                            item {
+                                SectionHeader(
+                                    icon = Icons.Default.Chat,
+                                    title = "Project Discussions"
+                                )
+                            }
+
+                            items(projects) { project ->
+
+                                AnimatedVisibility(visible = true, enter = fadeIn()) {
+
+                                    ProjectStatusCard(
+                                        project = project,
+                                        onChatClick = {
+                                            navController.navigate("chat/${project.id}")
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        /* -------- CONSULTATION CALLS -------- */
+
+                        if (bookings.isNotEmpty()) {
+
+                            item {
+                                SectionHeader(
+                                    icon = Icons.Default.Schedule,
+                                    title = "Consultation Calls"
+                                )
+                            }
+
+                            items(bookings) { booking ->
+                                BookingCard(booking)
+                            }
                         }
 
                         item { Spacer(Modifier.height(24.dp)) }
@@ -145,36 +216,126 @@ fun MyProjectsScreen(
             }
         }
     }
+
+
 }
 
-/* ---------------- PROJECT CARD ---------------- */
+/* -------- STAT CARD -------- */
 
 @Composable
-fun ProjectStatusCard(
-    project: ProjectInquiry,
-    onChatClick: () -> Unit
-) {
+fun StatCard(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
+
+
+    Card(
+        modifier = Modifier.width(150.dp),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                value,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(label, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+
+
+}
+
+/* -------- SECTION HEADER -------- */
+
+@Composable
+fun SectionHeader(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String) {
+
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+
+        Spacer(Modifier.width(8.dp))
+
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+    }
+
+
+}
+
+/* -------- EMPTY STATE -------- */
+
+@Composable
+fun EmptyState() {
+
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+
+        Icon(
+            Icons.Default.Info,
+            null,
+            modifier = Modifier.size(60.dp),
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+        )
+
+        Spacer(Modifier.height(14.dp))
+
+        Text(
+            "No activity yet",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+
+        Text(
+            "Your project discussions and bookings will appear here",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+
+}
+
+/* -------- PROJECT CARD -------- */
+
+@Composable
+fun ProjectStatusCard(project: ProjectInquiry, onChatClick: () -> Unit) {
+
 
     val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     val dateStr = sdf.format(Date(project.submittedAt))
 
-    Surface(
-
-        shape = RoundedCornerShape(16.dp),
-
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant
-        ),
-
-        color = MaterialTheme.colorScheme.surface,
-
-        modifier = Modifier.fillMaxWidth()
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
 
-        Column(
-            modifier = Modifier.padding(18.dp)
-        ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+
+            Text(project.service, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(project.description, style = MaterialTheme.typography.bodyMedium)
+
+            Spacer(Modifier.height(12.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -182,71 +343,11 @@ fun ProjectStatusCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
 
-                Text(
-                    text = project.service,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                AssistChip(onClick = {}, label = { Text(dateStr) })
 
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                ) {
+                Button(onClick = onChatClick, shape = RoundedCornerShape(22.dp)) {
 
-                    Text(
-                        text = project.status,
-                        modifier = Modifier.padding(
-                            horizontal = 10.dp,
-                            vertical = 4.dp
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            Text(
-                text = project.description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
-            )
-
-            Spacer(Modifier.height(14.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-
-                Column {
-
-                    Text(
-                        text = "Submitted",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Text(
-                        text = dateStr,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                Button(
-                    onClick = onChatClick,
-                    shape = RoundedCornerShape(22.dp)
-                ) {
-
-                    Icon(
-                        Icons.Default.Chat,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Icon(Icons.Default.Chat, null)
 
                     Spacer(Modifier.width(6.dp))
 
@@ -255,4 +356,84 @@ fun ProjectStatusCard(
             }
         }
     }
+
+
+}
+
+/* -------- BOOKING CARD -------- */
+
+@Composable
+fun BookingCard(
+    booking: Booking
+) {
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                Icon(
+                    Icons.Default.Schedule,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    "Consultation Call",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                "Date: ${booking.date}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Text(
+                "Time: ${booking.timeSlot}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            if (booking.notes.isNotEmpty()) {
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    booking.notes,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            AssistChip(
+                onClick = {},
+                label = {
+                    Text(booking.status ?: "Pending")
+                }
+            )
+        }
+    }
+
+
 }

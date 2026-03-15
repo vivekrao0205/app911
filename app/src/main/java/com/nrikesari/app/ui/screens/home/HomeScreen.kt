@@ -37,6 +37,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun HomeScreen(navController: NavController, userViewModel: UserViewModel) {
 
+
     val scrollState = rememberScrollState()
 
     Box(
@@ -88,6 +89,8 @@ fun HomeScreen(navController: NavController, userViewModel: UserViewModel) {
             Spacer(modifier = Modifier.height(80.dp))
         }
     }
+
+
 }
 
 /* ---------------- PREMIUM BACKGROUND ---------------- */
@@ -95,23 +98,14 @@ fun HomeScreen(navController: NavController, userViewModel: UserViewModel) {
 @Composable
 fun PremiumBackground() {
 
-    val transition = rememberInfiniteTransition(label = "bg")
 
-    val offsetX by transition.animateFloat(
-        initialValue = -300f,
-        targetValue = 300f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = ""
-    )
+    val infinite = rememberInfiniteTransition(label = "bg")
 
-    val offsetY by transition.animateFloat(
-        initialValue = -200f,
-        targetValue = 200f,
+    val offset by infinite.animateFloat(
+        initialValue = -400f,
+        targetValue = 400f,
         animationSpec = infiniteRepeatable(
-            animation = tween(15000, easing = LinearEasing),
+            animation = tween(16000, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = ""
@@ -127,17 +121,20 @@ fun PremiumBackground() {
                         MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
                         MaterialTheme.colorScheme.background
                     ),
-                    start = Offset(offsetX, offsetY),
-                    end = Offset(offsetX + 800f, offsetY + 1200f)
+                    start = Offset(offset, offset),
+                    end = Offset(offset + 800f, offset + 1200f)
                 )
             )
     )
+
+
 }
 
 /* ---------------- LOGO ---------------- */
 
 @Composable
 fun AnimatedLogo() {
+
 
     var visible by remember { mutableStateOf(false) }
 
@@ -155,7 +152,7 @@ fun AnimatedLogo() {
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(160.dp)
-                .clip(CircleShape) // ensures whole container is circle
+                .clip(CircleShape)
         ) {
 
             Surface(
@@ -169,12 +166,14 @@ fun AnimatedLogo() {
                 contentDescription = "Logo",
                 modifier = Modifier
                     .matchParentSize()
-                    .clip(CircleShape) // clip image to circle
-                    .scale(1.6f),      // zoom image inside circle
+                    .clip(CircleShape)
+                    .scale(1.6f),
                 contentScale = ContentScale.Crop
             )
         }
     }
+
+
 }
 
 /* ---------------- HERO TEXT ---------------- */
@@ -219,12 +218,15 @@ fun AnimatedHeroText() {
             textAlign = TextAlign.Center
         )
     }
+
+
 }
 
 /* ---------------- BUTTONS ---------------- */
 
 @Composable
 fun ActionButtons(navController: NavController) {
+
 
     Button(
         onClick = { navController.navigate(Screen.Contact.route) },
@@ -256,6 +258,8 @@ fun ActionButtons(navController: NavController) {
     ) {
         Text("View Portfolio")
     }
+
+
 }
 
 /* ---------------- STATS ---------------- */
@@ -263,15 +267,18 @@ fun ActionButtons(navController: NavController) {
 @Composable
 fun StatsSection() {
 
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
 
-        StatItem(Icons.Default.Work,"10+","Projects")
-        StatItem(Icons.Default.Groups,"20+","Clients")
+        StatItem(Icons.Default.Work,"20+","Projects")
+        StatItem(Icons.Default.Groups,"10+","Clients")
         StatItem(Icons.Default.Timeline,">1","Years")
     }
+
+
 }
 
 @Composable
@@ -292,12 +299,15 @@ fun StatItem(icon: ImageVector, value: String, label: String) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
     }
+
+
 }
 
 /* ---------------- TESTIMONIALS ---------------- */
 
 @Composable
 fun TestimonialSection(navController: NavController, userViewModel: UserViewModel) {
+
 
     val reviews by userViewModel.reviews.collectAsState()
 
@@ -347,12 +357,15 @@ fun TestimonialSection(navController: NavController, userViewModel: UserViewMode
             }
         }
     }
+
+
 }
 
 /* ---------------- TESTIMONIAL CARD ---------------- */
 
 @Composable
 fun TestimonialCard(testimonial: Testimonial) {
+
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -417,4 +430,6 @@ fun TestimonialCard(testimonial: Testimonial) {
             }
         }
     }
+
+
 }

@@ -24,7 +24,7 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
     val portfolio: StateFlow<List<PortfolioProject>> = repository.allProjects
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-        
+
     val skills: StateFlow<List<Skill>> = repository.allSkills
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -46,8 +46,8 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     private fun initializeDatabase() {
         viewModelScope.launch {
             // Check if DB is empty, then insert mock data as initial data
-            val currentProjects = repository.allProjects.firstOrNull()
-            if (currentProjects.isNullOrEmpty()) {
+            val currentServices = repository.allServices.firstOrNull()
+            if (currentServices.isNullOrEmpty()) {
                 repository.insertInitialData(
                     projects = MockDataRepository.getPortfolio(),
                     services = MockDataRepository.getServices(),
@@ -69,7 +69,7 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
         // Find in current flow value
         return services.value.find { it.id == id }
     }
-    
+
     fun getProjectById(id: String): PortfolioProject? {
         return portfolio.value.find { it.id == id }
     }

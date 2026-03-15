@@ -122,7 +122,7 @@ class FirebaseService {
 
             val userData = hashMapOf(
                 "uid" to uid,
-                "name" to (firebaseUser.displayName ?: "User"),
+                "name" to (firebaseUser.displayName ?: firebaseUser.email?.substringBefore("@") ?: "User"),
                 "email" to (firebaseUser.email ?: ""),
                 "phone" to "",
                 "createdAt" to FieldValue.serverTimestamp()
@@ -180,11 +180,34 @@ class FirebaseService {
                 UUID.randomUUID().toString()
             else booking.id
 
-            val newBooking = booking.copy(id = id)
+            val newBooking = booking.copy(
+                id = id,
+                status = booking.status ?: "Pending",
+                bookedAt = System.currentTimeMillis()
+            )
 
             bookings.document(id).set(newBooking).await()
 
             Result.success(Unit)
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getUserBookings(userId: String): Result<List<Booking>> {
+        return try {
+
+            val snapshot = bookings
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+
+            val list = snapshot.documents
+                .mapNotNull { it.toObject(Booking::class.java) }
+                .sortedByDescending { it.bookedAt }
+
+            Result.success(list)
 
         } catch (e: Exception) {
             Result.failure(e)
@@ -292,4 +315,3 @@ class FirebaseService {
         }
     }
 }
-

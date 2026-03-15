@@ -25,31 +25,36 @@ fun ServiceDetailScreen(
     service: Service
 ) {
 
+
     val scrollState = rememberScrollState()
     val colorScheme = MaterialTheme.colorScheme
     val icon = getServiceIcon(service.id)
 
-    val priceEstimate = when(service.title){
-        "Video Editing" -> "₹2k – ₹30k"
-        "3D / VFX" -> "₹20k – ₹70k"
-        "Graphic Design" -> "₹1k – ₹20k"
-        "UI/UX" -> "₹5k – ₹50k"
-        "Web Development" -> "₹5k – ₹80k"
-        "App Development" -> "₹40k – ₹3L"
-        "Digital Marketing" -> "₹8k – ₹1L"
-        "Content Creation" -> "₹3k – ₹40k"
+    /* -------- PRICE ESTIMATE -------- */
+
+    val priceEstimate = when(service.id){
+        "video_editing" -> "₹2k – ₹30k"
+        "vfx" -> "₹20k – ₹70k"
+        "graphic_design" -> "₹1k – ₹20k"
+        "uiux" -> "₹5k – ₹50k"
+        "web_dev" -> "₹5k – ₹80k"
+        "app_dev" -> "₹40k – ₹3L"
+        "digital_marketing" -> "₹8k – ₹1L"
+        "content_creation" -> "₹3k – ₹40k"
         else -> "Custom Quote"
     }
 
-    val timeline = when(service.title){
-        "Video Editing" -> "2 – 7 days"
-        "3D / VFX" -> "7 – 21 days"
-        "Graphic Design" -> "1 – 5 days"
-        "UI/UX" -> "5 – 14 days"
-        "Web Development" -> "7 – 30 days"
-        "App Development" -> "20 – 90 days"
-        "Digital Marketing" -> "Monthly campaign"
-        "Content Creation" -> "2 – 10 days"
+    /* -------- DELIVERY TIMELINE -------- */
+
+    val timeline = when(service.id){
+        "video_editing" -> "2 – 7 days"
+        "vfx" -> "7 – 21 days"
+        "graphic_design" -> "1 – 5 days"
+        "uiux" -> "5 – 14 days"
+        "web_dev" -> "7 – 30 days"
+        "app_dev" -> "20 – 90 days"
+        "digital_marketing" -> "Monthly campaign"
+        "content_creation" -> "2 – 10 days"
         else -> "Project Based"
     }
 
@@ -70,7 +75,9 @@ fun ServiceDetailScreen(
             color = colorScheme.surface,
             modifier = Modifier.size(56.dp)
         ) {
+
             Box(contentAlignment = Alignment.Center) {
+
                 Icon(
                     imageVector = icon,
                     contentDescription = service.title,
@@ -106,6 +113,7 @@ fun ServiceDetailScreen(
             icon = Icons.Default.Payments,
             title = "Estimated Pricing"
         ) {
+
             Text(
                 text = priceEstimate,
                 style = MaterialTheme.typography.bodyLarge,
@@ -121,6 +129,7 @@ fun ServiceDetailScreen(
             icon = Icons.Default.Schedule,
             title = "Delivery Timeline"
         ) {
+
             Text(
                 text = timeline,
                 style = MaterialTheme.typography.bodyLarge
@@ -135,6 +144,7 @@ fun ServiceDetailScreen(
             icon = Icons.Default.DesignServices,
             title = "What we offer"
         ) {
+
             Text(
                 text = service.description,
                 style = MaterialTheme.typography.bodyLarge
@@ -182,6 +192,7 @@ fun ServiceDetailScreen(
             icon = Icons.Default.WorkspacePremium,
             title = "Why choose Nrikesari"
         ) {
+
             Text(
                 text = service.whyChooseUs,
                 style = MaterialTheme.typography.bodyLarge
@@ -190,17 +201,23 @@ fun ServiceDetailScreen(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        /* -------- CTA -------- */
+        /* -------- CTA BUTTON -------- */
 
         PrimaryButton(
             text = "Start This Service",
-            onClick = { navController.navigate(Screen.Contact.route) },
+            onClick = {
+                navController.navigate(Screen.ProjectEnquiry.route)
+            },
             modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(32.dp))
     }
+
+
 }
+
+/* ---------------- SECTION CARD ---------------- */
 
 @Composable
 fun SectionCard(
@@ -208,6 +225,7 @@ fun SectionCard(
     title: String,
     content: @Composable ColumnScope.() -> Unit
 ) {
+
 
     val colorScheme = MaterialTheme.colorScheme
 
@@ -247,4 +265,6 @@ fun SectionCard(
             content()
         }
     }
+
+
 }

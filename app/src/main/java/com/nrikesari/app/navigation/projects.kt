@@ -12,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
@@ -29,7 +28,6 @@ data class Project(
 
 @Composable
 fun ProjectsScreen(navController: NavController) {
-
 
     val projects = listOf(
         Project(
@@ -66,12 +64,14 @@ fun ProjectsScreen(navController: NavController) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
 
+        /* ---------- HEADER ---------- */
+
         item {
 
             Spacer(Modifier.height(32.dp))
 
             Text(
-                text = "Our Projects",
+                text = "Projects Overview",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -80,7 +80,7 @@ fun ProjectsScreen(navController: NavController) {
             Spacer(Modifier.height(6.dp))
 
             Text(
-                text = "Some of our development work and digital products.",
+                text = "A quick overview of some work we’ve built. Visit our portfolio for full showcases.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
             )
@@ -88,15 +88,9 @@ fun ProjectsScreen(navController: NavController) {
             Spacer(Modifier.height(20.dp))
         }
 
-        itemsIndexed(projects) { index, project ->
-            AnimatedProjectCard(project, index)
-        }
-
-        /* -------- PORTFOLIO SECTION -------- */
+        /* ---------- PORTFOLIO CTA (TOP) ---------- */
 
         item {
-
-            Spacer(Modifier.height(20.dp))
 
             Surface(
                 shape = RoundedCornerShape(16.dp),
@@ -117,13 +111,13 @@ fun ProjectsScreen(navController: NavController) {
                         Icons.Default.Workspaces,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(34.dp)
                     )
 
                     Spacer(Modifier.height(10.dp))
 
                     Text(
-                        text = "Explore Our Full Portfolio",
+                        text = "View Our Full Portfolio",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -131,7 +125,7 @@ fun ProjectsScreen(navController: NavController) {
                     Spacer(Modifier.height(6.dp))
 
                     Text(
-                        text = "View all completed work and case studies.",
+                        text = "Explore detailed case studies, design work and completed projects.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -143,20 +137,41 @@ fun ProjectsScreen(navController: NavController) {
                             navController.navigate(Screen.Portfolio.route)
                         }
                     ) {
-                        Text("View Portfolio")
+                        Text("Open Portfolio")
                     }
                 }
+            }
+
+            Spacer(Modifier.height(10.dp))
+        }
+
+        /* ---------- PROJECT LIST ---------- */
+
+        itemsIndexed(projects) { index, project ->
+            AnimatedProjectCard(project, index)
+        }
+
+        /* ---------- BOTTOM CTA ---------- */
+
+        item {
+
+            Spacer(Modifier.height(24.dp))
+
+            OutlinedButton(
+                onClick = { navController.navigate(Screen.Portfolio.route) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("See Complete Portfolio")
             }
 
             Spacer(Modifier.height(40.dp))
         }
     }
-
-
 }
 
 @Composable
 fun AnimatedProjectCard(project: Project, index: Int) {
+
     var visible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -236,6 +251,4 @@ fun AnimatedProjectCard(project: Project, index: Int) {
             }
         }
     }
-
-
 }

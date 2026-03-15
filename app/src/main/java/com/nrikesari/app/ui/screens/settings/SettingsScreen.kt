@@ -83,7 +83,7 @@ fun SettingsScreen(
 
                 SettingsItem(
                     icon = Icons.Default.AccountCircle,
-                    title = currentUser.displayName ?: "User",
+                    title = currentUser.displayName ?: currentUser.email?.substringBefore("@") ?: "User",
                     subtitle = currentUser.email ?: "",
                     trailing = {
                         Text(

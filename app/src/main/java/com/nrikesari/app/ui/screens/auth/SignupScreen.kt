@@ -22,6 +22,7 @@ import com.google.android.gms.auth.api.signin.*
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.userProfileChangeRequest
 
 @Composable
 fun SignupScreen(
@@ -40,7 +41,8 @@ fun SignupScreen(
 
     val auth = FirebaseAuth.getInstance()
 
-    // Google Sign In
+    /* GOOGLE SIGN IN */
+
     val googleSignInClient = remember {
 
         val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -76,6 +78,8 @@ fun SignupScreen(
             errorMessage = "Google Sign Up Failed"
         }
     }
+
+    /* UI */
 
     Box(
         modifier = Modifier
@@ -174,6 +178,16 @@ fun SignupScreen(
                             password.trim()
                         ).addOnSuccessListener {
 
+                            /* SET DISPLAY NAME AFTER SIGNUP */
+
+                            val user = auth.currentUser
+
+                            val profileUpdates = userProfileChangeRequest {
+                                displayName = name.trim()
+                            }
+
+                            user?.updateProfile(profileUpdates)
+
                             isLoading = false
 
                             navController.navigate(Screen.Settings.route) {
@@ -234,4 +248,3 @@ fun SignupScreen(
         }
     }
 }
-

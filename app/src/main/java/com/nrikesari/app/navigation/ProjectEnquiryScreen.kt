@@ -27,8 +27,20 @@ fun ProjectEnquiryScreen(
 
     val currentUser = FirebaseAuth.getInstance().currentUser
 
-    var name by remember { mutableStateOf("") }
-    var contact by remember { mutableStateOf("") }
+    /* -------- AUTO FILL USER DATA -------- */
+
+    var name by remember {
+        mutableStateOf(
+            currentUser?.displayName
+                ?: currentUser?.email?.substringBefore("@")
+                ?: ""
+        )
+    }
+
+    var contact by remember {
+        mutableStateOf(currentUser?.email ?: "")
+    }
+
     var description by remember { mutableStateOf("") }
     var service by remember { mutableStateOf("Video Editing") }
     var complexity by remember { mutableStateOf("Medium") }
@@ -96,7 +108,7 @@ fun ProjectEnquiryScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        /* SUCCESS MESSAGE */
+        /* SUCCESS */
 
         if (successMessage) {
 
@@ -126,6 +138,8 @@ fun ProjectEnquiryScreen(
 
             Spacer(Modifier.height(12.dp))
         }
+
+        /* SERVICE */
 
         Text("Select Service", fontWeight = FontWeight.SemiBold)
 
@@ -168,6 +182,8 @@ fun ProjectEnquiryScreen(
 
         Spacer(Modifier.height(18.dp))
 
+        /* COMPLEXITY */
+
         Text("Project Complexity", fontWeight = FontWeight.SemiBold)
 
         Spacer(Modifier.height(10.dp))
@@ -185,6 +201,8 @@ fun ProjectEnquiryScreen(
         }
 
         Spacer(Modifier.height(22.dp))
+
+        /* FORM */
 
         OutlinedTextField(
             value = name,
@@ -215,6 +233,8 @@ fun ProjectEnquiryScreen(
 
         Spacer(Modifier.height(28.dp))
 
+        /* SEND */
+
         Button(
             onClick = {
 
@@ -237,15 +257,15 @@ fun ProjectEnquiryScreen(
                     name = name.trim(),
                     contact = contact.trim(),
                     service = service,
-                    description = description.trim()
+                    description = description.trim(),
+                    submittedAt = System.currentTimeMillis(),
+                    status = "Pending"
                 )
 
                 userViewModel.submitProjectEnquiry(inquiry)
 
                 successMessage = true
 
-                name = ""
-                contact = ""
                 description = ""
             },
             modifier = Modifier

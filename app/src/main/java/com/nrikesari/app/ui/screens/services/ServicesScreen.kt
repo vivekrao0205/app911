@@ -1,15 +1,19 @@
 package com.nrikesari.app.ui.screens.services
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -25,6 +29,7 @@ fun ServicesScreen(
     viewModel: MainViewModel
 ) {
 
+
     val services by viewModel.services.collectAsState()
 
     LazyColumn(
@@ -35,9 +40,9 @@ fun ServicesScreen(
         contentPadding = PaddingValues(bottom = 60.dp)
     ) {
 
-        item { Spacer(Modifier.height(24.dp)) }
+        item { Spacer(modifier = Modifier.height(24.dp)) }
 
-        /* ---------- HERO HEADER ---------- */
+        /* ---------- HEADER ---------- */
 
         item {
 
@@ -48,7 +53,7 @@ fun ServicesScreen(
                 color = MaterialTheme.colorScheme.primary
             )
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Text(
                 text = "Creative, technical and digital solutions designed to help brands grow.",
@@ -56,7 +61,7 @@ fun ServicesScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
         /* ---------- SERVICES LIST ---------- */
@@ -85,16 +90,20 @@ fun ServicesScreen(
         /* ---------- PRICING SECTION ---------- */
 
         item {
-            Spacer(Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             PricingSection()
         }
     }
+
+
 }
 
-/* ---------- PRICING ---------- */
+/* ---------------- PRICING SECTION ---------------- */
+
 
 @Composable
 fun PricingSection() {
+
 
     Column(
         modifier = Modifier.fillMaxWidth()
@@ -107,7 +116,7 @@ fun PricingSection() {
             color = MaterialTheme.colorScheme.primary
         )
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         Text(
             text = "Approximate starting prices for base packages.",
@@ -115,25 +124,18 @@ fun PricingSection() {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         val prices = listOf(
 
             Triple("Video Editing", "From ₹2,000", Icons.Default.Movie),
-
             Triple("3D / VFX", "From ₹20,000", Icons.Default.AutoFixHigh),
-
             Triple("Graphic Design", "From ₹1,000", Icons.Default.Brush),
-
             Triple("UI/UX Design", "From ₹5,000", Icons.Default.DesignServices),
-
             Triple("Web Development", "From ₹10,000", Icons.Default.Language),
-
             Triple("App Development", "From ₹40,000", Icons.Default.PhoneAndroid),
-
             Triple("Digital Marketing", "From ₹8,000", Icons.Default.Campaign),
-
-            Triple("Content Creation", "From ₹3,000", Icons.Default.EditNote)
+            Triple("Content Creation", "From ₹3,000", Icons.Default.AutoAwesome)
         )
 
         prices.forEach { (service, price, icon) ->
@@ -158,12 +160,12 @@ fun PricingSection() {
                 ) {
 
                     Icon(
-                        icon,
+                        imageVector = icon,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
 
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
 
                     Text(
                         text = service,
@@ -181,7 +183,7 @@ fun PricingSection() {
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             text = "Pricing may vary depending on project complexity, timeline and additional features.",
@@ -189,4 +191,6 @@ fun PricingSection() {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+
+
 }

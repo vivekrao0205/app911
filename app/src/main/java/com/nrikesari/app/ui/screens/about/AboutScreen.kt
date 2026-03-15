@@ -26,7 +26,7 @@ fun AboutScreen(navController: NavController) {
     val context = LocalContext.current
 
     fun openMaps() {
-        val uri = Uri.parse("https://www.google.com/maps/@17.6364829,78.4860126,17.89z")
+        val uri = Uri.parse("https://maps.app.goo.gl/35aMK4zDJF2Yb2LY6")
         context.startActivity(Intent(Intent.ACTION_VIEW, uri))
     }
 
@@ -55,8 +55,8 @@ fun AboutScreen(navController: NavController) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
 
-            HighlightCard("Projects", "10+")
-            HighlightCard("Clients", "20+")
+            HighlightCard("Projects", "20+")
+            HighlightCard("Clients", "10+")
             HighlightCard("Experience", ">1 yr")
         }
 

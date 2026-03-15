@@ -148,7 +148,7 @@ fun ContactScreen(
                 "Our Location",
                 "Open in Google Maps"
             ) {
-                openLink("https://www.google.com/maps/@17.6364829,78.4860126,17z")
+                openLink("https://maps.app.goo.gl/35aMK4zDJF2Yb2LY6")
             }
         }
 
@@ -183,7 +183,9 @@ fun ContactScreen(
                         Column(modifier = Modifier.weight(1f)) {
 
                             Text(
-                                currentUser.displayName ?: "User",
+                                currentUser.displayName
+                                    ?: currentUser.email?.substringBefore("@")
+                                    ?: "User",
                                 fontWeight = FontWeight.Bold
                             )
 

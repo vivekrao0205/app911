@@ -22,7 +22,6 @@ fun ServiceCard(
     modifier: Modifier = Modifier
 ) {
 
-
     val colorScheme = MaterialTheme.colorScheme
     val icon = getServiceIcon(service.id)
 
@@ -32,18 +31,20 @@ fun ServiceCard(
             .clickable { onClick() },
         shape = RoundedCornerShape(14.dp),
         border = BorderStroke(
-            1.dp,
-            colorScheme.outlineVariant
+            width = 1.dp,
+            color = colorScheme.outlineVariant
         ),
         color = colorScheme.surface
     ) {
 
         Row(
             modifier = Modifier
-                .padding(horizontal = 14.dp, vertical = 12.dp)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+
+            /* -------- ICON -------- */
 
             Surface(
                 shape = RoundedCornerShape(10.dp),
@@ -60,7 +61,9 @@ fun ServiceCard(
                 )
             }
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+
+            /* -------- TEXT CONTENT -------- */
 
             Column(
                 modifier = Modifier.weight(1f)
@@ -72,14 +75,17 @@ fun ServiceCard(
                     fontWeight = FontWeight.SemiBold
                 )
 
-                Spacer(Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
                     text = service.description,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = colorScheme.onSurfaceVariant
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 2
                 )
             }
+
+            /* -------- ARROW -------- */
 
             Icon(
                 imageVector = Icons.Default.ChevronRight,
@@ -89,6 +95,7 @@ fun ServiceCard(
             )
         }
     }
+
 
 }
 
@@ -129,7 +136,7 @@ fun getServiceIcon(id: String): ImageVector {
             Icons.Default.Movie
 
         "content_creation", "content creation" ->
-            Icons.Default.EditNote
+            Icons.Default.AutoAwesome
 
         else ->
             Icons.Default.Build

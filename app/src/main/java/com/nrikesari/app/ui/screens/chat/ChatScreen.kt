@@ -19,108 +19,139 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
-import com.nrikesari.app.firebase.FirebaseService
 import com.nrikesari.app.model.ChatMessage
 import com.nrikesari.app.viewmodel.ChatViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(navController: NavController, projectId: String, chatViewModel: ChatViewModel = viewModel()) {
-    val coroutineScope = rememberCoroutineScope()
-    
+fun ChatScreen(
+    navController: NavController,
+    projectId: String,
+    chatViewModel: ChatViewModel = viewModel()
+) {
+
+
     val messages by chatViewModel.messages.collectAsState()
     val isUploading by chatViewModel.isUploading.collectAsState()
 
     var inputText by remember { mutableStateOf("") }
+
     val listState = rememberLazyListState()
 
-    // Real-time listener for messages
+    /* ---------- REALTIME LISTENER ---------- */
+
     DisposableEffect(projectId) {
         chatViewModel.startListening(projectId)
         onDispose { chatViewModel.stopListening() }
     }
-    
+
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+            listState.animateScrollToItem(messages.lastIndex)
         }
     }
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri != null) {
-            chatViewModel.uploadAttachment(projectId, uri)
+    /* ---------- IMAGE PICKER ---------- */
+
+    val launcher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            uri?.let {
+                chatViewModel.uploadAttachment(projectId, it)
+            }
         }
-    }
 
     Scaffold(
+
         topBar = {
+
             TopAppBar(
-                title = { Text("Project Chat", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
+                title = {
+                    Text(
+                        "Project Chat",
+                        fontWeight = FontWeight.Bold
+                    )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.primary
-                )
+
+                navigationIcon = {
+                    IconButton(
+                        onClick = { navController.popBackStack() }
+                    ) {
+                        Icon(Icons.Default.ArrowBack, "Back")
+                    }
+                }
             )
         }
+
     ) { paddingValues ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.background)
         ) {
+
+            /* ---------- CHAT LIST ---------- */
+
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(vertical = 16.dp)
             ) {
+
                 items(messages) { message ->
+
                     val isMine = message.senderId == chatViewModel.currentUserId
-                    MessageBubble(message = message, isMine = isMine)
+
+                    MessageBubble(
+                        message = message,
+                        isMine = isMine
+                    )
                 }
             }
 
+            /* ---------- UPLOAD INDICATOR ---------- */
+
             if (isUploading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
+            /* ---------- CHAT INPUT BOX ---------- */
+
             Surface(
-                color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 2.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 12.dp)
+                        .padding(horizontal = 10.dp, vertical = 12.dp)
                         .navigationBarsPadding(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { launcher.launch("image/*") }) {
+
+                    IconButton(
+                        onClick = { launcher.launch("image/*") }
+                    ) {
                         Icon(
                             Icons.Default.AttachFile,
-                            contentDescription = "Attach File",
+                            contentDescription = "Attach",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -130,10 +161,7 @@ fun ChatScreen(navController: NavController, projectId: String, chatViewModel: C
                         onValueChange = { inputText = it },
                         modifier = Modifier.weight(1f),
                         placeholder = { Text("Type a message...") },
-                        shape = RoundedCornerShape(24.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                        ),
+                        shape = RoundedCornerShape(26.dp),
                         maxLines = 4
                     )
 
@@ -141,15 +169,25 @@ fun ChatScreen(navController: NavController, projectId: String, chatViewModel: C
 
                     IconButton(
                         onClick = {
+
                             if (inputText.isNotBlank()) {
-                                chatViewModel.sendMessage(projectId, inputText.trim())
+
+                                chatViewModel.sendMessage(
+                                    projectId,
+                                    inputText.trim()
+                                )
+
                                 inputText = ""
                             }
                         },
                         modifier = Modifier
                             .size(48.dp)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                            .background(
+                                MaterialTheme.colorScheme.primary,
+                                CircleShape
+                            )
                     ) {
+
                         Icon(
                             Icons.Default.Send,
                             contentDescription = "Send",
@@ -161,63 +199,108 @@ fun ChatScreen(navController: NavController, projectId: String, chatViewModel: C
             }
         }
     }
+
+
 }
 
+/* ---------- MESSAGE BUBBLE ---------- */
+
 @Composable
-fun MessageBubble(message: ChatMessage, isMine: Boolean) {
+fun MessageBubble(
+    message: ChatMessage,
+    isMine: Boolean
+) {
+
+
     val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
     val timeString = sdf.format(Date(message.timestamp))
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
+        horizontalAlignment =
+        if (isMine) Alignment.End else Alignment.Start
     ) {
+
         Surface(
+
             shape = RoundedCornerShape(
-                topStart = 16.dp, 
-                topEnd = 16.dp, 
-                bottomStart = if (isMine) 16.dp else 4.dp, 
-                bottomEnd = if (isMine) 4.dp else 16.dp
+                topStart = 16.dp,
+                topEnd = 16.dp,
+                bottomStart = if (isMine) 16.dp else 6.dp,
+                bottomEnd = if (isMine) 6.dp else 16.dp
             ),
-            color = if (isMine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+
+            color =
+            if (isMine)
+                MaterialTheme.colorScheme.primary
+            else
+                MaterialTheme.colorScheme.secondaryContainer,
+
             modifier = Modifier.widthIn(max = 280.dp)
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+
+            Column(
+                modifier = Modifier.padding(12.dp)
+            ) {
+
+                /* IMAGE ATTACHMENT */
+
                 if (message.attachmentUrl.isNotEmpty()) {
+
                     AsyncImage(
                         model = message.attachmentUrl,
                         contentDescription = "Attachment",
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp)
-                            .clip(RoundedCornerShape(8.dp)),
+                            .clip(RoundedCornerShape(10.dp)),
                         contentScale = ContentScale.Crop
                     )
-                    if (message.text.isNotEmpty() && message.text != "Sent an attachment") {
+
+                    if (message.text.isNotEmpty()
+                        && message.text != "Sent an attachment"
+                    ) {
+
                         Spacer(modifier = Modifier.height(8.dp))
+
                         Text(
-                            text = message.text,
-                            color = if (isMine) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
-                            style = MaterialTheme.typography.bodyMedium
+                            message.text,
+                            color =
+                            if (isMine)
+                                MaterialTheme.colorScheme.onPrimary
+                            else
+                                MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     }
+
                 } else {
+
                     Text(
-                        text = message.text,
-                        color = if (isMine) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
-                        style = MaterialTheme.typography.bodyMedium
+                        message.text,
+                        color =
+                        if (isMine)
+                            MaterialTheme.colorScheme.onPrimary
+                        else
+                            MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 Text(
-                    text = timeString,
-                    color = (if (isMine) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer).copy(alpha = 0.7f),
+                    timeString,
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.align(Alignment.End)
+                    modifier = Modifier.align(Alignment.End),
+                    color =
+                    (if (isMine)
+                        MaterialTheme.colorScheme.onPrimary
+                    else
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                            ).copy(alpha = 0.7f)
                 )
             }
         }
     }
+
+
 }

@@ -123,8 +123,8 @@ fun NrikesariNavGraph(
                 val serviceId = entry.arguments?.getString("serviceId")
                 val service = serviceId?.let { viewModel.getServiceById(it) }
 
-                service?.let {
-                    ServiceDetailScreen(navController, it)
+                if (service != null) {
+                    ServiceDetailScreen(navController, service)
                 }
             }
 
@@ -142,8 +142,8 @@ fun NrikesariNavGraph(
                 val projectId = entry.arguments?.getString("projectId")
                 val project = projectId?.let { viewModel.getProjectById(it) }
 
-                project?.let {
-                    ProjectDetailScreen(navController, it, authViewModel)
+                if (project != null) {
+                    ProjectDetailScreen(navController, project, authViewModel)
                 }
             }
 
@@ -167,8 +167,6 @@ fun NrikesariNavGraph(
                 PremiumFeaturesScreen(navController)
             }
 
-            /* ---------- FIXED HERE ---------- */
-
             composable(Screen.Projects.route) {
                 ProjectsScreen(navController)
             }
@@ -185,8 +183,6 @@ fun NrikesariNavGraph(
                 WriteReviewScreen(navController, authViewModel, userViewModel)
             }
 
-            /* ---------- LIVE CHAT ---------- */
-
             composable(
                 route = Screen.Chat.route,
                 arguments = listOf(
@@ -202,13 +198,9 @@ fun NrikesariNavGraph(
                 )
             }
 
-            /* ---------- BOOK CALL ---------- */
-
             composable(Screen.BookCall.route) {
                 BookCallScreen(navController)
             }
-
-            /* ---------- AUTH ---------- */
 
             composable(Screen.Login.route) {
                 LoginScreen(navController, authViewModel)
@@ -219,6 +211,7 @@ fun NrikesariNavGraph(
             }
         }
     }
+
 
 }
 
@@ -276,6 +269,7 @@ fun BottomBar(
             }
         }
     }
+
 
 }
 
