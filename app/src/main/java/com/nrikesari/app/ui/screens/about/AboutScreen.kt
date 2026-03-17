@@ -57,7 +57,7 @@ fun AboutScreen(navController: NavController) {
 
             HighlightCard("Projects", "20+")
             HighlightCard("Clients", "10+")
-            HighlightCard("Experience", ">1 yr")
+            HighlightCard("Experience", "<1 yr")
         }
 
         SectionCard(

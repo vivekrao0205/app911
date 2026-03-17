@@ -275,7 +275,7 @@ fun StatsSection() {
 
         StatItem(Icons.Default.Work,"20+","Projects")
         StatItem(Icons.Default.Groups,"10+","Clients")
-        StatItem(Icons.Default.Timeline,">1","Years")
+        StatItem(Icons.Default.Timeline,"<1","Years")
     }
 
 
