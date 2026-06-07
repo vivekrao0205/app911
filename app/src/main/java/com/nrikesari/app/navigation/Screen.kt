@@ -18,6 +18,7 @@ sealed class Screen(val route: String) {
     object Contact : Screen("contact")
     object Settings : Screen("settings")
     object Premium : Screen("premium")
+    object NotificationHistory : Screen("notification_history")
 
     /* -------- Auth -------- */
 

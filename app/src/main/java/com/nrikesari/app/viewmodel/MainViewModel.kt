@@ -3,6 +3,8 @@ package com.nrikesari.app.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.nrikesari.app.firebase.FirebaseService
+import com.nrikesari.app.model.DynamicProject
 import com.nrikesari.app.model.PortfolioProject
 import com.nrikesari.app.model.Service
 import com.nrikesari.app.model.TeamMember
@@ -17,6 +19,29 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 class MainViewModel(private val repository: AppRepository) : ViewModel() {
+
+    private val firebaseService = FirebaseService()
+
+    private val _dynamicProjects = MutableStateFlow<List<DynamicProject>>(emptyList())
+    val dynamicProjects: StateFlow<List<DynamicProject>> = _dynamicProjects.asStateFlow()
+
+    private var projectsListener: com.google.firebase.firestore.ListenerRegistration? = null
+
+    init {
+        startProjectsListener()
+        initializeDatabase()
+    }
+
+    fun startProjectsListener() {
+        projectsListener?.remove()
+        projectsListener = firebaseService.listenToDynamicProjects(includeUnpublished = true) { list ->
+            _dynamicProjects.value = list
+        }
+    }
+
+    fun getDynamicProjectById(id: String): DynamicProject? {
+        return dynamicProjects.value.find { it.id == id }
+    }
 
     // Using StateFlow to expose data from Room to the UI
     val services: StateFlow<List<Service>> = repository.allServices
@@ -64,6 +89,11 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
     fun getProjectById(id: String): PortfolioProject? {
         return portfolio.value.find { it.id == id }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        projectsListener?.remove()
     }
 }
 

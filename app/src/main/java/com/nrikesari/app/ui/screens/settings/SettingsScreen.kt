@@ -108,9 +108,31 @@ fun SettingsScreen(
                     icon = Icons.Default.Workspaces,
                     title = "My Projects",
                     subtitle = "View your projects",
-                    trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
+                    trailing = { Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, null) },
                     onClick = { navController.navigate(Screen.MyProjects.route) }
                 )
+
+                HorizontalDivider()
+
+                SettingsItem(
+                    icon = Icons.Default.Notifications,
+                    title = "Notification History",
+                    subtitle = "View previous alerts and updates",
+                    trailing = { Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, null) },
+                    onClick = { navController.navigate(Screen.NotificationHistory.route) }
+                )
+
+                val isAdmin = currentUser.email == "vivekrao9505@gmail.com" || currentUser.email == "anileshwar7@gmail.com"
+                if (isAdmin) {
+                    HorizontalDivider()
+                    SettingsItem(
+                        icon = Icons.Default.AdminPanelSettings,
+                        title = "Admin Portal",
+                        subtitle = "Access administration dashboard & controls",
+                        trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
+                        onClick = { navController.navigate("admin_dashboard") }
+                    )
+                }
 
                 HorizontalDivider()
 
@@ -183,12 +205,13 @@ fun SettingsScreen(
             SettingsItem(
                 icon = Icons.Default.Notifications,
                 title = "Push Notifications",
-                subtitle = "Receive updates",
-                trailing = {
-                    Switch(
-                        checked = notificationsEnabled,
-                        onCheckedChange = { notificationsEnabled = it }
-                    )
+                subtitle = "Configure system alerts & permissions",
+                trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
+                onClick = {
+                    val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", context.packageName, null)
+                    }
+                    context.startActivity(intent)
                 }
             )
 

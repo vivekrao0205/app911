@@ -9,7 +9,8 @@ data class User(
     val email: String = "",
     val phone: String = "",
     val profileImageUrl: String = "",
-    val joinedAt: Long = System.currentTimeMillis()
+    val joinedAt: Long = System.currentTimeMillis(),
+    val accountStatus: String = "active"
 ) {
     val displayName: String
         get() = if (name.isNotBlank()) name else email
@@ -69,4 +70,41 @@ data class Testimonial(
     val rating: Float = 5f,
     val avatarUrl: String = "",
     val timestamp: Long = System.currentTimeMillis() // important for realtime sorting
+)
+
+
+// ---------------- DYNAMIC PROJECT MODEL ----------------
+
+data class DynamicProject(
+    val id: String = "",
+    val title: String = "",
+    val shortDescription: String = "",
+    val fullDescription: String = "",
+    val coverImage: String = "",
+    val galleryImages: List<String> = emptyList(),
+    val technologiesUsed: List<String> = emptyList(),
+    val category: String = "",
+    val completionDate: String = "",
+    val projectUrl: String = "",
+    val gitHubUrl: String = "",
+    val clientName: String = "",
+    val status: String = "Completed", // Ongoing, Completed, Upcoming
+    val isPublished: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+
+// ---------------- NOTIFICATION MODEL ----------------
+
+data class Notification(
+    val id: String = "",
+    val userId: String = "", // sender or target user UID
+    val title: String = "",
+    val message: String = "",
+    val type: String = "", // registration, message, booking, inquiry, ticket, file_upload, profile_update
+    val status: String = "Sent", // Sent, Delivered, Seen, Accepted, Rejected, In Progress, Completed
+    val clickAction: String = "", // Deep link route to navigate to
+    val timestamp: Long = System.currentTimeMillis(),
+    val isRead: Boolean = false,
+    val isAdminAlert: Boolean = false
 )

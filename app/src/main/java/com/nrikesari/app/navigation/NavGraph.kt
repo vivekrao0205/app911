@@ -26,6 +26,9 @@ import com.nrikesari.app.ui.screens.settings.SettingsScreen
 import com.nrikesari.app.ui.screens.skills.SkillsScreen
 import com.nrikesari.app.ui.screens.splash.SplashScreen
 import com.nrikesari.app.ui.screens.auth.*
+import com.nrikesari.app.ui.screens.admin.*
+import com.nrikesari.app.ui.screens.notifications.NotificationHistoryScreen
+import com.google.firebase.auth.FirebaseAuth
 
 import com.nrikesari.app.viewmodel.MainViewModel
 import com.nrikesari.app.viewmodel.AuthViewModel
@@ -48,7 +51,14 @@ fun NrikesariNavGraph(
         Screen.Login.route,
         Screen.Signup.route,
         Screen.ProjectEnquiry.route,
-        Screen.Chat.route
+        Screen.Chat.route,
+        Screen.NotificationHistory.route,
+        "admin_dashboard",
+        "admin_notifications",
+        "admin_users",
+        "admin_communications",
+        "admin_projects",
+        "admin_analytics"
     )
 
     val showBottomBar = currentRoute !in hideBarsRoutes
@@ -140,7 +150,7 @@ fun NrikesariNavGraph(
             ) { entry ->
 
                 val projectId = entry.arguments?.getString("projectId")
-                val project = projectId?.let { viewModel.getProjectById(it) }
+                val project = projectId?.let { viewModel.getDynamicProjectById(it) }
 
                 if (project != null) {
                     ProjectDetailScreen(navController, project, authViewModel)
@@ -165,6 +175,10 @@ fun NrikesariNavGraph(
 
             composable(Screen.Premium.route) {
                 PremiumFeaturesScreen(navController)
+            }
+
+            composable(Screen.NotificationHistory.route) {
+                NotificationHistoryScreen(navController)
             }
 
             composable(Screen.Projects.route) {
@@ -208,6 +222,62 @@ fun NrikesariNavGraph(
 
             composable(Screen.Signup.route) {
                 SignupScreen(navController)
+            }
+
+            /* -------- ADMIN DASHBOARD & SECURE PANELS -------- */
+
+            composable("admin_dashboard") {
+                val email = FirebaseAuth.getInstance().currentUser?.email
+                if (email == "vivekrao9505@gmail.com" || email == "anileshwar7@gmail.com") {
+                    AdminDashboardScreen(navController)
+                } else {
+                    AccessDeniedScreen(navController)
+                }
+            }
+
+            composable("admin_notifications") {
+                val email = FirebaseAuth.getInstance().currentUser?.email
+                if (email == "vivekrao9505@gmail.com" || email == "anileshwar7@gmail.com") {
+                    AdminNotificationCenterScreen(navController)
+                } else {
+                    AccessDeniedScreen(navController)
+                }
+            }
+
+            composable("admin_users") {
+                val email = FirebaseAuth.getInstance().currentUser?.email
+                if (email == "vivekrao9505@gmail.com" || email == "anileshwar7@gmail.com") {
+                    AdminUserManagementScreen(navController)
+                } else {
+                    AccessDeniedScreen(navController)
+                }
+            }
+
+            composable("admin_communications") {
+                val email = FirebaseAuth.getInstance().currentUser?.email
+                if (email == "vivekrao9505@gmail.com" || email == "anileshwar7@gmail.com") {
+                    AdminCommunicationManagementScreen(navController)
+                } else {
+                    AccessDeniedScreen(navController)
+                }
+            }
+
+            composable("admin_projects") {
+                val email = FirebaseAuth.getInstance().currentUser?.email
+                if (email == "vivekrao9505@gmail.com" || email == "anileshwar7@gmail.com") {
+                    AdminProjectManagementScreen(navController)
+                } else {
+                    AccessDeniedScreen(navController)
+                }
+            }
+
+            composable("admin_analytics") {
+                val email = FirebaseAuth.getInstance().currentUser?.email
+                if (email == "vivekrao9505@gmail.com" || email == "anileshwar7@gmail.com") {
+                    AdminAnalyticsScreen(navController)
+                } else {
+                    AccessDeniedScreen(navController)
+                }
             }
         }
     }

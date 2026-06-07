@@ -32,13 +32,141 @@ import com.nrikesari.app.R
 import com.nrikesari.app.navigation.Screen
 import com.nrikesari.app.model.Testimonial
 import com.nrikesari.app.viewmodel.UserViewModel
+import com.google.firebase.auth.FirebaseAuth
+import com.nrikesari.app.firebase.FirebaseService
 import kotlinx.coroutines.delay
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(navController: NavController, userViewModel: UserViewModel) {
 
-
+    val context = LocalContext.current
+    val activity = context as? android.app.Activity
     val scrollState = rememberScrollState()
+
+    var showPermissionRationale by remember { mutableStateOf(false) }
+    var showDenialExplanation by remember { mutableStateOf(false) }
+    var showSettingsRedirect by remember { mutableStateOf(false) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                Toast.makeText(context, "Notifications enabled successfully!", Toast.LENGTH_SHORT).show()
+            } else {
+                val shouldShow = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && activity != null) {
+                    androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
+                        activity,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    )
+                } else {
+                    true
+                }
+                if (!shouldShow) {
+                    showSettingsRedirect = true
+                } else {
+                    showDenialExplanation = true
+                }
+            }
+        }
+    )
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasPermission) {
+                showPermissionRationale = true
+            }
+        }
+    }
+
+    if (showPermissionRationale) {
+        AlertDialog(
+            onDismissRequest = { showPermissionRationale = false },
+            title = { Text("Enable Real-time Alerts") },
+            text = { Text("To receive instant updates on inquiries, bookings, messages, and portfolio updates, please allow notifications.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPermissionRationale = false
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                ) {
+                    Text("Enable", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionRationale = false }) {
+                    Text("Not Now")
+                }
+            }
+        )
+    }
+
+    if (showDenialExplanation) {
+        AlertDialog(
+            onDismissRequest = { showDenialExplanation = false },
+            title = { Text("Permission Required") },
+            text = { Text("Notifications are essential for receiving real-time project updates and discussion messages. Would you like to grant permission?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDenialExplanation = false
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                ) {
+                    Text("Try Again", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDenialExplanation = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showSettingsRedirect) {
+        AlertDialog(
+            onDismissRequest = { showSettingsRedirect = false },
+            title = { Text("Notifications Blocked") },
+            text = { Text("Notification permissions are permanently disabled. To receive real-time updates, please open App Settings and enable Notifications manually.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showSettingsRedirect = false
+                        val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = android.net.Uri.fromParts("package", context.packageName, null)
+                        }
+                        context.startActivity(intent)
+                    }
+                ) {
+                    Text("Open Settings", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSettingsRedirect = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -87,6 +215,51 @@ fun HomeScreen(navController: NavController, userViewModel: UserViewModel) {
             TestimonialSection(navController, userViewModel)
 
             Spacer(modifier = Modifier.height(80.dp))
+        }
+
+        // Top Bar actions (Notification History icon)
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        if (currentUser != null) {
+            val firebaseService = remember { FirebaseService() }
+            var unreadCount by remember { mutableStateOf(0) }
+            
+            DisposableEffect(currentUser.uid) {
+                val listener = firebaseService.listenToUserNotifications(currentUser.uid) { list ->
+                    unreadCount = list.count { !it.isRead }
+                }
+                onDispose {
+                    listener.remove()
+                }
+            }
+            
+            IconButton(
+                onClick = { navController.navigate(Screen.NotificationHistory.route) },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 40.dp, end = 20.dp)
+                    .size(48.dp)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f), CircleShape)
+                    .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+            ) {
+                Box {
+                    Icon(
+                        Icons.Default.Notifications,
+                        contentDescription = "Notifications",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    if (unreadCount > 0) {
+                        Badge(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 4.dp, y = (-4).dp),
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        ) {
+                            Text(unreadCount.toString(), fontSize = 9.sp)
+                        }
+                    }
+                }
+            }
         }
     }
 
