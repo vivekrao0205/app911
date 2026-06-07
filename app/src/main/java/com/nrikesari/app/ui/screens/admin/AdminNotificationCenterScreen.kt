@@ -33,6 +33,7 @@ fun AdminNotificationCenterScreen(navController: NavController) {
     var alertsList by remember { mutableStateOf<List<Notification>>(emptyList()) }
     var searchQuery by remember { mutableStateOf("") }
     var filterType by remember { mutableStateOf("All") } // All, Registration, Message, Booking, Inquiry
+    var showArchived by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
 
     // Live Snapshot Listener for notifications
@@ -54,8 +55,11 @@ fun AdminNotificationCenterScreen(navController: NavController) {
         }
     }
 
-    val filteredAlerts = remember(alertsList, searchQuery, filterType) {
+    val filteredAlerts = remember(alertsList, searchQuery, filterType, showArchived) {
         alertsList.filter {
+            val isArchived = it.status == "Archived"
+            val matchesArchive = if (showArchived) isArchived else !isArchived
+            matchesArchive &&
             (filterType == "All" || it.type.equals(filterType, ignoreCase = true)) &&
             (it.title.contains(searchQuery, ignoreCase = true) || it.message.contains(searchQuery, ignoreCase = true))
         }
@@ -71,7 +75,7 @@ fun AdminNotificationCenterScreen(navController: NavController) {
                     }
                 },
                 actions = {
-                    if (alertsList.any { !it.isRead }) {
+                    if (alertsList.any { !it.isRead && it.status != "Archived" }) {
                         TextButton(
                             onClick = {
                                 coroutineScope.launch {
@@ -135,7 +139,22 @@ fun AdminNotificationCenterScreen(navController: NavController) {
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
+            
+            /* SHOW ARCHIVED TOGGLE */
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Show Archived Alerts", style = MaterialTheme.typography.bodyMedium)
+                Switch(
+                    checked = showArchived,
+                    onCheckedChange = { showArchived = it }
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
 
             /* LIST */
             if (isLoading) {
@@ -166,6 +185,11 @@ fun AdminNotificationCenterScreen(navController: NavController) {
                                     firebaseService.markNotificationAsRead(alert.id)
                                 }
                             },
+                            onArchive = {
+                                coroutineScope.launch {
+                                    firebaseService.updateNotificationStatus(alert.id, "Archived")
+                                }
+                            },
                             onDelete = {
                                 coroutineScope.launch {
                                     firebaseService.deleteNotification(alert.id)
@@ -183,6 +207,7 @@ fun AdminNotificationCenterScreen(navController: NavController) {
 fun AdminNotificationItem(
     alert: Notification,
     onMarkRead: () -> Unit,
+    onArchive: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -228,6 +253,11 @@ fun AdminNotificationItem(
                 if (!alert.isRead) {
                     IconButton(onClick = onMarkRead) {
                         Icon(Icons.Default.Done, "Mark Read", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                if (alert.status != "Archived") {
+                    IconButton(onClick = onArchive) {
+                        Icon(Icons.Default.Archive, "Archive", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 IconButton(onClick = onDelete) {

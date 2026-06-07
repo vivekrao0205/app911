@@ -27,6 +27,12 @@ import com.nrikesari.app.firebase.FirebaseService
 import com.nrikesari.app.model.Notification
 import kotlinx.coroutines.launch
 
+import com.nrikesari.app.model.ProjectInquiry
+import com.nrikesari.app.model.ChatMessage
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminDashboardScreen(navController: NavController) {
@@ -35,18 +41,46 @@ fun AdminDashboardScreen(navController: NavController) {
 
     var stats by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var recentAlerts by remember { mutableStateOf<List<Notification>>(emptyList()) }
+    var latestInquiries by remember { mutableStateOf<List<ProjectInquiry>>(emptyList()) }
+    var latestMessages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
-    LaunchedEffect(Unit) {
-        val statsResult = firebaseService.getAnalyticsCounts()
-        if (statsResult.isSuccess) {
-            stats = statsResult.getOrDefault(emptyMap())
+    var selectedSectionTab by remember { mutableStateOf(0) } // 0 = Alerts, 1 = Latest Inquiries, 2 = Recent Chats
+
+    DisposableEffect(Unit) {
+        val statsListeners = firebaseService.listenToAnalyticsCounts { updatedStats ->
+            stats = updatedStats
+            isLoading = false
         }
-        val alertsResult = firebaseService.getAdminNotifications()
-        if (alertsResult.isSuccess) {
-            recentAlerts = alertsResult.getOrDefault(emptyList()).take(5)
+        val alertsListener = firebaseService.listenToAdminNotifications { updatedAlerts ->
+            recentAlerts = updatedAlerts.take(5)
         }
-        isLoading = false
+        
+        val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+        val inquiriesListener = db.collection("inquiries")
+            .orderBy("submittedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(5)
+            .addSnapshotListener { snapshot, _ ->
+                if (snapshot != null) {
+                    latestInquiries = snapshot.toObjects(ProjectInquiry::class.java)
+                }
+            }
+            
+        val messagesListener = db.collectionGroup("chats")
+            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(5)
+            .addSnapshotListener { snapshot, _ ->
+                if (snapshot != null) {
+                    latestMessages = snapshot.toObjects(ChatMessage::class.java)
+                }
+            }
+            
+        onDispose {
+            statsListeners.forEach { it.remove() }
+            alertsListener.remove()
+            inquiriesListener.remove()
+            messagesListener.remove()
+        }
     }
 
     Scaffold(
@@ -107,7 +141,7 @@ fun AdminDashboardScreen(navController: NavController) {
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        "Here is a summary of the agency's performance and requests.",
+                        "Here is a summary of the agency's performance and requests in real-time.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                     )
@@ -127,9 +161,9 @@ fun AdminDashboardScreen(navController: NavController) {
                                 modifier = Modifier.weight(1f)
                             )
                             StatCardItem(
-                                title = "Total Projects",
-                                value = stats["Total Projects"]?.toString() ?: "0",
-                                icon = Icons.Default.Work,
+                                title = "Active Users",
+                                value = stats["Active Users"]?.toString() ?: "0",
+                                icon = Icons.Default.Person,
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -138,13 +172,30 @@ fun AdminDashboardScreen(navController: NavController) {
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             StatCardItem(
-                                title = "Bookings",
+                                title = "Total Projects",
+                                value = stats["Total Projects"]?.toString() ?: "0",
+                                icon = Icons.Default.Work,
+                                modifier = Modifier.weight(1f)
+                            )
+                            StatCardItem(
+                                title = "Total Messages",
+                                value = stats["Total Messages"]?.toString() ?: "0",
+                                icon = Icons.Default.ChatBubble,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            StatCardItem(
+                                title = "Total Meetings",
                                 value = stats["Total Bookings"]?.toString() ?: "0",
                                 icon = Icons.Default.CalendarToday,
                                 modifier = Modifier.weight(1f)
                             )
                             StatCardItem(
-                                title = "Inquiries",
+                                title = "Total Inquiries",
                                 value = stats["Total Inquiries"]?.toString() ?: "0",
                                 icon = Icons.Default.SupportAgent,
                                 modifier = Modifier.weight(1f)
@@ -200,45 +251,110 @@ fun AdminDashboardScreen(navController: NavController) {
                     }
                 }
 
-                /* RECENT ACTIVITIES ALERT FEED */
+                /* TAB OVERVIEW SECTION */
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Recent Activities",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "View All",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clickable { navController.navigate("admin_notifications") }
-                        )
-                    }
-                }
-
-                if (recentAlerts.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 10.dp),
-                            contentAlignment = Alignment.Center
+                    Column {
+                        TabRow(
+                            selectedTabIndex = selectedSectionTab,
+                            modifier = Modifier.clip(RoundedCornerShape(12.dp))
                         ) {
-                            Text("No recent alerts received.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Tab(selected = selectedSectionTab == 0, onClick = { selectedSectionTab = 0 }) {
+                                Box(modifier = Modifier.padding(10.dp)) { Text("Alerts", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                            }
+                            Tab(selected = selectedSectionTab == 1, onClick = { selectedSectionTab = 1 }) {
+                                Box(modifier = Modifier.padding(10.dp)) { Text("Latest Inquiries", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                            }
+                            Tab(selected = selectedSectionTab == 2, onClick = { selectedSectionTab = 2 }) {
+                                Box(modifier = Modifier.padding(10.dp)) { Text("Recent Chats", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                            }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        when (selectedSectionTab) {
+                            0 -> {
+                                if (recentAlerts.isEmpty()) {
+                                    Box(modifier = Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
+                                        Text("No recent alerts received.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                } else {
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        recentAlerts.forEach { alert ->
+                                            RecentActivityCard(alert)
+                                        }
+                                    }
+                                }
+                            }
+                            1 -> {
+                                if (latestInquiries.isEmpty()) {
+                                    Box(modifier = Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
+                                        Text("No inquiries submitted yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                } else {
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        latestInquiries.forEach { inquiry ->
+                                            Card(
+                                                shape = RoundedCornerShape(12.dp),
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                                modifier = Modifier.fillMaxWidth().clickable {
+                                                    navController.navigate("chat/${inquiry.id}")
+                                                }
+                                            ) {
+                                                Column(modifier = Modifier.padding(12.dp)) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(inquiry.name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                                        Text(inquiry.status, color = MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                    Spacer(Modifier.height(4.dp))
+                                                    Text("Requested: ${inquiry.service}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                                                    Text(inquiry.description, style = MaterialTheme.typography.bodySmall, maxLines = 1, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            2 -> {
+                                if (latestMessages.isEmpty()) {
+                                    Box(modifier = Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
+                                        Text("No recent chat messages found.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                } else {
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        latestMessages.forEach { msg ->
+                                            val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
+                                            val timeString = sdf.format(Date(msg.timestamp))
+                                            Card(
+                                                shape = RoundedCornerShape(12.dp),
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                                modifier = Modifier.fillMaxWidth().clickable {
+                                                    navController.navigate("chat/${msg.projectId}")
+                                                }
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(12.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text(msg.text, fontWeight = FontWeight.Medium, fontSize = 13.sp, maxLines = 1)
+                                                        Text("Inquiry ID: ${msg.projectId}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    }
+                                                    Text(timeString, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-                } else {
-                    items(recentAlerts) { alert ->
-                        RecentActivityCard(alert)
-                    }
                 }
 
-                item { Spacer(Modifier.height(40.dp)) }
+                item { Spacer(Modifier.height(30.dp)) }
             }
         }
     }

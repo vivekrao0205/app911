@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class ChatViewModel : ViewModel() {
 
@@ -65,6 +66,44 @@ class ChatViewModel : ViewModel() {
                 .collection("chats")
                 .document(id)
                 .set(message.copy(id = id))
+
+            // Trigger notification
+            val isAdmin = firebaseService.currentUser?.email == "vivekrao9505@gmail.com" || firebaseService.currentUser?.email == "anileshwar7@gmail.com"
+            if (isAdmin) {
+                try {
+                    val inquiryDoc = firestore.collection("inquiries").document(projectId).get().await()
+                    if (inquiryDoc.exists()) {
+                        val targetUserId = inquiryDoc.getString("userId") ?: ""
+                        if (targetUserId.isNotEmpty()) {
+                            val notifId = java.util.UUID.randomUUID().toString()
+                            val notification = com.nrikesari.app.model.Notification(
+                                id = notifId,
+                                userId = targetUserId,
+                                title = "New Message from Admin",
+                                message = if (attachmentUrl.isNotEmpty()) "Sent an attachment" else text,
+                                type = "message",
+                                clickAction = "chat/$projectId",
+                                isAdminAlert = false
+                            )
+                            firebaseService.saveNotification(notification)
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore or log error
+                }
+            } else {
+                val notifId = java.util.UUID.randomUUID().toString()
+                val notification = com.nrikesari.app.model.Notification(
+                    id = notifId,
+                    userId = currentUserId,
+                    title = "New Chat Message",
+                    message = if (attachmentUrl.isNotEmpty()) "Sent an attachment" else text,
+                    type = "message",
+                    clickAction = "chat/$projectId",
+                    isAdminAlert = true
+                )
+                firebaseService.saveNotification(notification)
+            }
         }
     }
 

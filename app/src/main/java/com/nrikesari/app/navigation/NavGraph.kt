@@ -148,12 +148,26 @@ fun NrikesariNavGraph(
                     navArgument("projectId") { type = NavType.StringType }
                 )
             ) { entry ->
-
-                val projectId = entry.arguments?.getString("projectId")
-                val project = projectId?.let { viewModel.getDynamicProjectById(it) }
+                val projectId = entry.arguments?.getString("projectId") ?: ""
+                val projects by viewModel.dynamicProjects.collectAsState()
+                val project = projects.find { it.id == projectId }
 
                 if (project != null) {
                     ProjectDetailScreen(navController, project, authViewModel)
+                } else if (projects.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Project not found")
+                    }
                 }
             }
 

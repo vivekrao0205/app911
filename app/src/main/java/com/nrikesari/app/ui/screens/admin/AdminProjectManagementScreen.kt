@@ -151,6 +151,9 @@ fun AdminProjectManagementScreen(navController: NavController) {
                                 coroutineScope.launch {
                                     val updated = project.copy(isPublished = !project.isPublished)
                                     firebaseService.saveDynamicProject(updated)
+                                    if (updated.isPublished) {
+                                        firebaseService.broadcastProjectNotification(updated)
+                                    }
                                     loadProjects()
                                 }
                             },
@@ -262,6 +265,9 @@ fun AdminProjectManagementScreen(navController: NavController) {
 
                         coroutineScope.launch {
                             firebaseService.saveDynamicProject(newProj)
+                            if (newProj.isPublished) {
+                                firebaseService.broadcastProjectNotification(newProj)
+                            }
                             isFormOpen = false
                             loadProjects()
                         }

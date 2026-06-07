@@ -145,6 +145,18 @@ class FirebaseService {
 
             inquiries.document(id).set(newInquiry).await()
 
+            // Trigger notification for admins
+            val notification = Notification(
+                id = UUID.randomUUID().toString(),
+                userId = inquiry.userId,
+                title = "New Project Inquiry",
+                message = "${inquiry.name} requested service: ${inquiry.service}",
+                type = "inquiry",
+                clickAction = "admin_communications",
+                isAdminAlert = true
+            )
+            saveNotification(notification)
+
             Result.success(Unit)
 
         } catch (e: Exception) {
@@ -187,6 +199,18 @@ class FirebaseService {
             )
 
             bookings.document(id).set(newBooking).await()
+
+            // Trigger notification for admins
+            val notification = Notification(
+                id = UUID.randomUUID().toString(),
+                userId = booking.userId,
+                title = "New Booking Request",
+                message = "${booking.name} requested consultation on ${booking.date} at ${booking.timeSlot}",
+                type = "booking",
+                clickAction = "admin_dashboard",
+                isAdminAlert = true
+            )
+            saveNotification(notification)
 
             Result.success(Unit)
 
@@ -324,6 +348,33 @@ class FirebaseService {
             val id = if (project.id.isBlank()) UUID.randomUUID().toString() else project.id
             val newProject = project.copy(id = id)
             firestore.collection("projects").document(id).set(newProject).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun broadcastProjectNotification(project: DynamicProject): Result<Unit> {
+        return try {
+            val usersResult = getAllUsers()
+            if (usersResult.isSuccess) {
+                val allUsers = usersResult.getOrDefault(emptyList())
+                for (user in allUsers) {
+                    if (user.uid.isNotEmpty()) {
+                        val notifId = UUID.randomUUID().toString()
+                        val notification = Notification(
+                            id = notifId,
+                            userId = user.uid,
+                            title = "New Project Showcase",
+                            message = "Check out our latest project: ${project.title}",
+                            type = "project_update",
+                            clickAction = "project_detail/${project.id}",
+                            isAdminAlert = false
+                        )
+                        saveNotification(notification)
+                    }
+                }
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
