@@ -1,5 +1,8 @@
 package com.nrikesari.app.model
 
+import com.google.firebase.firestore.PropertyName
+
+
 
 // ---------------- USER MODEL ----------------
 
@@ -41,7 +44,7 @@ data class ChatMessage(
     val text: String = "",
     val attachmentUrl: String = "",
     val timestamp: Long = System.currentTimeMillis(),
-    val isRead: Boolean = false
+    @get:PropertyName("read") @field:PropertyName("read") val isRead: Boolean = false
 )
 
 
@@ -89,7 +92,7 @@ data class DynamicProject(
     val gitHubUrl: String = "",
     val clientName: String = "",
     val status: String = "Completed", // Ongoing, Completed, Upcoming
-    val isPublished: Boolean = true,
+    @get:PropertyName("published") @field:PropertyName("published") val isPublished: Boolean = true,
     val createdAt: Long = System.currentTimeMillis()
 )
 
@@ -105,6 +108,6 @@ data class Notification(
     val status: String = "Sent", // Sent, Delivered, Seen, Accepted, Rejected, In Progress, Completed
     val clickAction: String = "", // Deep link route to navigate to
     val timestamp: Long = System.currentTimeMillis(),
-    val isRead: Boolean = false,
-    val isAdminAlert: Boolean = false
+    @get:PropertyName("read") @field:PropertyName("read") val isRead: Boolean = false,
+    @get:PropertyName("adminAlert") @field:PropertyName("adminAlert") val isAdminAlert: Boolean = false
 )

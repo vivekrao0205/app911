@@ -108,7 +108,7 @@ fun SettingsScreen(
                     icon = Icons.Default.Workspaces,
                     title = "My Projects",
                     subtitle = "View your projects",
-                    trailing = { Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, null) },
+                    trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
                     onClick = { navController.navigate(Screen.MyProjects.route) }
                 )
 
@@ -118,7 +118,7 @@ fun SettingsScreen(
                     icon = Icons.Default.Notifications,
                     title = "Notification History",
                     subtitle = "View previous alerts and updates",
-                    trailing = { Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, null) },
+                    trailing = { Icon(Icons.Default.ArrowForwardIos, null) },
                     onClick = { navController.navigate(Screen.NotificationHistory.route) }
                 )
 

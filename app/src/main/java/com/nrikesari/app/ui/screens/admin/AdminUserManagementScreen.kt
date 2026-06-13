@@ -45,6 +45,20 @@ fun AdminUserManagementScreen(navController: NavController) {
     var userBookings by remember { mutableStateOf<List<Booking>>(emptyList()) }
     var isDetailLoading by remember { mutableStateOf(false) }
 
+    var editingBooking by remember { mutableStateOf<Booking?>(null) }
+    var selectedBookingStatus by remember { mutableStateOf("Pending") }
+
+    fun loadUserDetails(userId: String) {
+        isDetailLoading = true
+        coroutineScope.launch {
+            val inqRes = firebaseService.getUserProjects(userId)
+            val bookRes = firebaseService.getUserBookings(userId)
+            userInquiries = inqRes.getOrDefault(emptyList())
+            userBookings = bookRes.getOrDefault(emptyList())
+            isDetailLoading = false
+        }
+    }
+
     fun loadUsers() {
         isLoading = true
         coroutineScope.launch {
@@ -122,14 +136,7 @@ fun AdminUserManagementScreen(navController: NavController) {
                             user = user,
                             onClick = {
                                 selectedUser = user
-                                isDetailLoading = true
-                                coroutineScope.launch {
-                                    val inqRes = firebaseService.getUserProjects(user.uid)
-                                    val bookRes = firebaseService.getUserBookings(user.uid)
-                                    userInquiries = inqRes.getOrDefault(emptyList())
-                                    userBookings = bookRes.getOrDefault(emptyList())
-                                    isDetailLoading = false
-                                }
+                                loadUserDetails(user.uid)
                             },
                             onSuspendToggle = {
                                 coroutineScope.launch {
@@ -250,6 +257,12 @@ fun AdminUserManagementScreen(navController: NavController) {
                         }
                         items(userBookings) { booking ->
                             Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        editingBooking = booking
+                                        selectedBookingStatus = booking.status ?: "Pending"
+                                    },
                                 shape = RoundedCornerShape(8.dp),
                                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
                             ) {
@@ -263,6 +276,66 @@ fun AdminUserManagementScreen(navController: NavController) {
                 }
             }
         }
+    }
+
+    editingBooking?.let { booking ->
+        AlertDialog(
+            onDismissRequest = { editingBooking = null },
+            title = { Text("Update Booking Status") },
+            text = {
+                Column {
+                    Text("Select new status for this booking:")
+                    Spacer(Modifier.height(14.dp))
+                    listOf("Pending", "Confirmed", "Rescheduled", "Completed", "Cancelled").forEach { status ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedBookingStatus = status }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedBookingStatus == status,
+                                onClick = { selectedBookingStatus = status }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(status)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            firebaseService.updateBookingStatus(booking.id, selectedBookingStatus)
+                            if (booking.userId.isNotEmpty()) {
+                                val notifId = java.util.UUID.randomUUID().toString()
+                                val notification = com.nrikesari.app.model.Notification(
+                                    id = notifId,
+                                    userId = booking.userId,
+                                    title = "Booking Status Updated",
+                                    message = "Your booking for consultation on ${booking.date} at ${booking.timeSlot} is now '$selectedBookingStatus'.",
+                                    type = "booking",
+                                    clickAction = "notification_history",
+                                    isAdminAlert = false
+                                )
+                                firebaseService.saveNotification(notification)
+                            }
+                            editingBooking = null
+                            loadUserDetails(booking.userId)
+                        }
+                    }
+                ) {
+                    Text("Update", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingBooking = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

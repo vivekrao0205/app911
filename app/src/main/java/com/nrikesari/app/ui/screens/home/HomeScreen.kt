@@ -3,6 +3,8 @@ package com.nrikesari.app.ui.screens.home
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -335,12 +337,12 @@ fun AnimatedLogo() {
             ) {}
 
             Image(
-                painter = painterResource(id = R.drawable.icon2_foreground),
+                painter = painterResource(id = R.drawable.ic_launcher_foreground),
                 contentDescription = "Logo",
                 modifier = Modifier
                     .matchParentSize()
                     .clip(CircleShape)
-                    .scale(1.6f),
+                    .scale(1.3f),
                 contentScale = ContentScale.Crop
             )
         }

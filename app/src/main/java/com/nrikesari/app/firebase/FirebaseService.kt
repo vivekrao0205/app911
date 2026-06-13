@@ -238,6 +238,15 @@ class FirebaseService {
         }
     }
 
+    suspend fun updateBookingStatus(bookingId: String, status: String): Result<Unit> {
+        return try {
+            bookings.document(bookingId).update("status", status).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     // ---------------- TESTIMONIALS ----------------
 
     suspend fun submitTestimonial(testimonial: Testimonial): Result<Unit> {
@@ -446,7 +455,7 @@ class FirebaseService {
 
     suspend fun markNotificationAsRead(notificationId: String): Result<Unit> {
         return try {
-            firestore.collection("notifications").document(notificationId).update("isRead", true).await()
+            firestore.collection("notifications").document(notificationId).update("read", true).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -465,14 +474,14 @@ class FirebaseService {
     suspend fun markAllNotificationsAsRead(userId: String?, isAdmin: Boolean): Result<Unit> {
         return try {
             val query = if (isAdmin) {
-                firestore.collection("notifications").whereEqualTo("adminAlert", true).whereEqualTo("isRead", false)
+                firestore.collection("notifications").whereEqualTo("adminAlert", true).whereEqualTo("read", false)
             } else {
-                firestore.collection("notifications").whereEqualTo("userId", userId).whereEqualTo("isRead", false)
+                firestore.collection("notifications").whereEqualTo("userId", userId).whereEqualTo("read", false)
             }
             val snapshot = query.get().await()
             val batch = firestore.batch()
             for (doc in snapshot.documents) {
-                batch.update(doc.reference, "isRead", true)
+                batch.update(doc.reference, "read", true)
             }
             batch.commit().await()
             Result.success(Unit)

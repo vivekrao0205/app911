@@ -24,6 +24,7 @@ import com.nrikesari.app.viewmodel.AuthViewModel
 import com.nrikesari.app.viewmodel.MainViewModel
 import com.nrikesari.app.viewmodel.MainViewModelFactory
 import com.nrikesari.app.viewmodel.UserViewModel
+import com.nrikesari.app.firebase.FirebaseService
 
 import android.content.Intent
 
@@ -119,6 +120,53 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
+                    }
+                }
+
+                // Global real-time local notifications listener
+                val firebaseService = remember { FirebaseService() }
+                val notifiedIds = remember { mutableSetOf<String>() }
+                val listenerRegistration = remember { mutableStateOf<com.google.firebase.firestore.ListenerRegistration?>(null) }
+
+                LaunchedEffect(authState) {
+                    listenerRegistration.value?.remove()
+                    listenerRegistration.value = null
+                    
+                    val currentUser = FirebaseAuth.getInstance().currentUser
+                    if (currentUser != null) {
+                        val isAdmin = currentUser.email == "vivekrao9505@gmail.com" || currentUser.email == "anileshwar7@gmail.com"
+                        val callback = { list: List<com.nrikesari.app.model.Notification> ->
+                            val now = System.currentTimeMillis()
+                            list.forEach { notif ->
+                                // Check if notification is less than 2 minutes old and has not been notified yet in this session
+                                val isRecent = (now - notif.timestamp) < 120000
+                                if (isRecent && !notifiedIds.contains(notif.id)) {
+                                    notifiedIds.add(notif.id)
+                                    // Trigger local notification outside the app!
+                                    com.nrikesari.app.service.MyFirebaseMessagingService.showNotification(
+                                        context,
+                                        notif.title,
+                                        notif.message,
+                                        notif.clickAction
+                                    )
+                                } else {
+                                    // Make sure we mark old notifications as notified so we don't trigger them on startup
+                                    notifiedIds.add(notif.id)
+                                }
+                            }
+                        }
+                        
+                        if (isAdmin) {
+                            listenerRegistration.value = firebaseService.listenToAdminNotifications(callback)
+                        } else {
+                            listenerRegistration.value = firebaseService.listenToUserNotifications(currentUser.uid, callback)
+                        }
+                    }
+                }
+                
+                DisposableEffect(Unit) {
+                    onDispose {
+                        listenerRegistration.value?.remove()
                     }
                 }
 

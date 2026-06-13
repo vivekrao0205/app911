@@ -17,6 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.nrikesari.app.firebase.FirebaseService
@@ -329,7 +332,32 @@ fun ProjectStatusCard(project: ProjectInquiry, onChatClick: () -> Unit) {
 
         Column(modifier = Modifier.padding(18.dp)) {
 
-            Text(project.service, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(project.service, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                        .border(
+                            0.5.dp,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        text = project.status,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
 
             Spacer(Modifier.height(6.dp))
 
@@ -340,8 +368,7 @@ fun ProjectStatusCard(project: ProjectInquiry, onChatClick: () -> Unit) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+                verticalAlignment = Alignment.CenterVertically) {
 
                 AssistChip(onClick = {}, label = { Text(dateStr) })
 

@@ -273,6 +273,19 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
                     onClick = {
                         coroutineScope.launch {
                             firebaseService.updateInquiryStatus(inquiry.id, selectedStatus)
+                            if (inquiry.userId.isNotEmpty()) {
+                                val notifId = java.util.UUID.randomUUID().toString()
+                                val notification = com.nrikesari.app.model.Notification(
+                                    id = notifId,
+                                    userId = inquiry.userId,
+                                    title = "Inquiry Status Updated",
+                                    message = "Your inquiry for '${inquiry.service}' has been updated to '$selectedStatus'.",
+                                    type = "inquiry",
+                                    clickAction = "my_projects",
+                                    isAdminAlert = false
+                                )
+                                firebaseService.saveNotification(notification)
+                            }
                             editingInquiry = null
                             loadData()
                         }

@@ -85,6 +85,32 @@ fun ContactScreen(
             .add(data)
             .addOnSuccessListener {
 
+                currentUser?.uid?.let { uid ->
+                    val userNotifId = java.util.UUID.randomUUID().toString()
+                    val userNotif = com.nrikesari.app.model.Notification(
+                        id = userNotifId,
+                        userId = uid,
+                        title = "Inquiry Sent Successfully",
+                        message = "Your inquiry for '$description' has been sent.",
+                        type = "inquiry",
+                        clickAction = "notification_history",
+                        isAdminAlert = false
+                    )
+                    firestore.collection("notifications").document(userNotifId).set(userNotif)
+                }
+
+                val adminNotifId = java.util.UUID.randomUUID().toString()
+                val adminNotif = com.nrikesari.app.model.Notification(
+                    id = adminNotifId,
+                    userId = currentUser?.uid ?: "",
+                    title = "New Contact Inquiry",
+                    message = "$name requested service: $description",
+                    type = "inquiry",
+                    clickAction = "admin_communications",
+                    isAdminAlert = true
+                )
+                firestore.collection("notifications").document(adminNotifId).set(adminNotif)
+
                 isSending = false
                 successMessage = "success"
 
