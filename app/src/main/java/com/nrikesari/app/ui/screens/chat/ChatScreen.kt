@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,12 +20,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.google.firebase.firestore.FirebaseFirestore
 import com.nrikesari.app.model.ChatMessage
+import com.nrikesari.app.model.User
 import com.nrikesari.app.viewmodel.ChatViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.text.SimpleDateFormat
@@ -210,97 +216,191 @@ fun MessageBubble(
     message: ChatMessage,
     isMine: Boolean
 ) {
-
-
     val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
     val timeString = sdf.format(Date(message.timestamp))
+    
+    var senderProfile by remember(message.senderId) { mutableStateOf<User?>(null) }
+    val firestore = remember { FirebaseFirestore.getInstance() }
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment =
-        if (isMine) Alignment.End else Alignment.Start
-    ) {
-
-        Surface(
-
-            shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isMine) 16.dp else 6.dp,
-                bottomEnd = if (isMine) 6.dp else 16.dp
-            ),
-
-            color =
-            if (isMine)
-                MaterialTheme.colorScheme.primary
-            else
-                MaterialTheme.colorScheme.secondaryContainer,
-
-            modifier = Modifier.widthIn(max = 280.dp)
-        ) {
-
-            Column(
-                modifier = Modifier.padding(12.dp)
-            ) {
-
-                /* IMAGE ATTACHMENT */
-
-                if (message.attachmentUrl.isNotEmpty()) {
-
-                    AsyncImage(
-                        model = message.attachmentUrl,
-                        contentDescription = "Attachment",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .clip(RoundedCornerShape(10.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-
-                    if (message.text.isNotEmpty()
-                        && message.text != "Sent an attachment"
-                    ) {
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            message.text,
-                            color =
-                            if (isMine)
-                                MaterialTheme.colorScheme.onPrimary
-                            else
-                                MaterialTheme.colorScheme.onSecondaryContainer
-                        )
+    LaunchedEffect(message.senderId) {
+        if (message.senderId.isNotEmpty()) {
+            firestore.collection("users").document(message.senderId).get()
+                .addOnSuccessListener { snap ->
+                    if (snap.exists()) {
+                        senderProfile = snap.toObject(User::class.java)
                     }
-
-                } else {
-
-                    Text(
-                        message.text,
-                        color =
-                        if (isMine)
-                            MaterialTheme.colorScheme.onPrimary
-                        else
-                            MaterialTheme.colorScheme.onSecondaryContainer
-                    )
                 }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    timeString,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.align(Alignment.End),
-                    color =
-                    (if (isMine)
-                        MaterialTheme.colorScheme.onPrimary
-                    else
-                        MaterialTheme.colorScheme.onSecondaryContainer
-                            ).copy(alpha = 0.7f)
-                )
-            }
         }
     }
 
+    val isSenderAdmin = remember(senderProfile) {
+        senderProfile?.email == "vivekrao9505@gmail.com" || senderProfile?.email == "anileshwar7@gmail.com"
+    }
 
+    val displayName = remember(senderProfile, isSenderAdmin) {
+        when {
+            isSenderAdmin -> "NRIKESARI Admin"
+            senderProfile != null -> senderProfile!!.displayName
+            else -> "User"
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        if (!isMine) {
+            // Show avatar for incoming messages
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isSenderAdmin) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        else MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (senderProfile?.profileImageUrl?.isNotEmpty() == true) {
+                    AsyncImage(
+                        model = senderProfile?.profileImageUrl,
+                        contentDescription = "Sender Profile Pic",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(
+                        text = displayName.take(1).uppercase(),
+                        fontWeight = FontWeight.Bold,
+                        color = if (isSenderAdmin) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+
+        Column(
+            horizontalAlignment = if (isMine) Alignment.End else Alignment.Start,
+            modifier = Modifier.weight(1f, fill = false)
+        ) {
+            if (!isMine) {
+                Text(
+                    text = displayName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .widthIn(max = 260.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            topStart = 16.dp,
+                            topEnd = 16.dp,
+                            bottomStart = if (isMine) 16.dp else 4.dp,
+                            bottomEnd = if (isMine) 4.dp else 16.dp
+                        )
+                    )
+                    .background(
+                        if (isMine) {
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primary,
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+                                )
+                            )
+                        } else {
+                            Brush.linearGradient(
+                                colors = if (isSenderAdmin) {
+                                    listOf(
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.04f)
+                                    )
+                                } else {
+                                    listOf(
+                                        MaterialTheme.colorScheme.surfaceVariant,
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
+                            )
+                        }
+                    )
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.linearGradient(
+                            colors = if (isMine) {
+                                listOf(Color.Transparent, Color.Transparent)
+                            } else {
+                                if (isSenderAdmin) {
+                                    listOf(
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                    )
+                                } else {
+                                    listOf(
+                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                    )
+                                }
+                            }
+                        ),
+                        shape = RoundedCornerShape(
+                            topStart = 16.dp,
+                            topEnd = 16.dp,
+                            bottomStart = if (isMine) 16.dp else 4.dp,
+                            bottomEnd = if (isMine) 4.dp else 16.dp
+                        )
+                    )
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Column {
+                    /* IMAGE ATTACHMENT */
+                    if (message.attachmentUrl.isNotEmpty()) {
+                        AsyncImage(
+                            model = message.attachmentUrl,
+                            contentDescription = "Attachment",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .clip(RoundedCornerShape(10.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        if (message.text.isNotEmpty() && message.text != "Sent an attachment") {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = message.text,
+                                color = if (isMine) MaterialTheme.colorScheme.onPrimary 
+                                        else MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = message.text,
+                            color = if (isMine) MaterialTheme.colorScheme.onPrimary 
+                                    else MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = timeString,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.align(Alignment.End),
+                        color = (if (isMine) MaterialTheme.colorScheme.onPrimary 
+                                else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+    }
 }

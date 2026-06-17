@@ -1,5 +1,7 @@
 package com.nrikesari.app.ui.screens.admin
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -23,6 +26,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -30,20 +36,44 @@ import com.nrikesari.app.firebase.FirebaseService
 import com.nrikesari.app.model.ChatMessage
 import com.nrikesari.app.model.ProjectInquiry
 import com.nrikesari.app.model.User
-import com.nrikesari.app.navigation.Screen
 import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+// Unified Inquiry model representing both detailed Start Project requests and General Contact forms
+data class UnifiedInquiry(
+    val id: String,
+    val userId: String,
+    val name: String,
+    val email: String,
+    val phone: String,
+    val company: String,
+    val service: String,
+    val projectType: String,
+    val budget: String,
+    val timeline: String,
+    val description: String,
+    val status: String, // "New", "Contacted", "In Progress", "Completed", "Archived"
+    val submittedAt: Long,
+    val isProjectInquiry: Boolean,
+    val fileUrl: String = "",
+    val additionalNotes: String = "",
+    val goals: String = ""
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminCommunicationManagementScreen(navController: NavController) {
+fun AdminCommunicationManagementScreen(
+    navController: NavController,
+    initialTab: String = "chats",
+    initialFilter: String = "all"
+) {
     val firebaseService = remember { FirebaseService() }
     val coroutineScope = rememberCoroutineScope()
 
-    var activeTab by remember { mutableStateOf(0) } // 0 = Chat Messages, 1 = Queries/Inquiries
+    var activeTab by remember { mutableStateOf(if (initialTab == "inquiries") 1 else 0) } // 0 = Chat Messages, 1 = CRM Inquiries
 
     var inquiriesList by remember { mutableStateOf<List<ProjectInquiry>>(emptyList()) }
     var contactInquiriesList by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
@@ -56,19 +86,20 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
     var chatCurrentPage by remember { mutableStateOf(0) }
     val chatsPerPage = 6
 
-    // Inquiry filter states
-    var inquiryFilterStatus by remember { mutableStateOf("All") } // All, Pending, In Progress, Resolved, Closed
-    var inquirySortBy by remember { mutableStateOf("Newest") } // Newest, Name
+    // Inquiry filter states (CRM Statuses)
+    var inquiryFilterStatus by remember { mutableStateOf("All") } // All, New, Contacted, In Progress, Completed, Archived
+    var inquirySortBy by remember { mutableStateOf("Newest") } // Newest, Oldest, Name
+    var inquiryTypeFilter by remember { mutableStateOf(if (initialFilter == "project") "Start Project Wizard" else "All") } // All, Start Project Wizard, General Contacts
     var inquiryCurrentPage by remember { mutableStateOf(0) }
-    val inquiriesPerPage = 6
+    val inquiriesPerPage = 8
+
+    // Selected Inquiry for details panel
+    var selectedInquiryForDetails by remember { mutableStateOf<UnifiedInquiry?>(null) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     // Unread count map to enable parent filtering
     val unreadCounts = remember { mutableStateMapOf<String, Int>() }
     val lastMessageTimes = remember { mutableStateMapOf<String, Long>() }
-
-    // Update statuses state
-    var editingInquiry by remember { mutableStateOf<ProjectInquiry?>(null) }
-    var selectedStatus by remember { mutableStateOf("New") }
 
     fun loadData() {
         isLoading = true
@@ -86,11 +117,11 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
         loadData()
     }
 
-    // Reset pagination
+    // Reset pagination on filter updates
     LaunchedEffect(searchQuery, chatFilterType, chatSortBy) {
         chatCurrentPage = 0
     }
-    LaunchedEffect(searchQuery, inquiryFilterStatus, inquirySortBy) {
+    LaunchedEffect(searchQuery, inquiryFilterStatus, inquirySortBy, inquiryTypeFilter) {
         inquiryCurrentPage = 0
     }
 
@@ -112,7 +143,11 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
 
         list = when (chatSortBy) {
             "Name" -> list.sortedBy { it.name.lowercase() }
-            else -> list.sortedByDescending { lastMessageTimes[it.id] ?: it.submittedAt } // Newest message or submission
+            "Unread First" -> list.sortedWith(
+                compareByDescending<ProjectInquiry> { unreadCounts[it.id] ?: 0 }
+                    .thenByDescending { lastMessageTimes[it.id] ?: it.submittedAt }
+            )
+            else -> list.sortedByDescending { lastMessageTimes[it.id] ?: it.submittedAt }
         }
 
         list
@@ -124,46 +159,124 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
         filteredChats.drop(chatCurrentPage * chatsPerPage).take(chatsPerPage)
     }
 
-    /* INQUIRIES FILTERING AND SORTING */
-    val filteredInquiries = remember(inquiriesList, searchQuery, inquiryFilterStatus, inquirySortBy) {
-        var list = inquiriesList.filter {
+    /* CRM UNIFIED INQUIRIES LIST (Combining ProjectInquiries & General Contacts) */
+    val unifiedInquiriesList = remember(inquiriesList, contactInquiriesList) {
+        val list = mutableListOf<UnifiedInquiry>()
+        
+        // Map detailed inquiries
+        inquiriesList.forEach {
+            // Map old/legacy statuses into clean CRM status
+            val cleanStatus = when (it.status) {
+                "Inquiry Received", "Pending", "New" -> "New"
+                "In Progress" -> "In Progress"
+                "Resolved", "Completed" -> "Completed"
+                "Closed", "Archived" -> "Archived"
+                "Contacted" -> "Contacted"
+                else -> "New"
+            }
+            list.add(
+                UnifiedInquiry(
+                    id = it.id,
+                    userId = it.userId,
+                    name = it.name,
+                    email = it.email.ifBlank { it.contact },
+                    phone = it.phone,
+                    company = it.companyName,
+                    service = it.service,
+                    projectType = it.projectType.ifBlank { "N/A" },
+                    budget = it.budgetRange.ifBlank { "Flexible" },
+                    timeline = it.timeline.ifBlank { "Flexible" },
+                    description = it.description,
+                    status = cleanStatus,
+                    submittedAt = it.submittedAt,
+                    isProjectInquiry = true,
+                    fileUrl = it.fileUrl,
+                    additionalNotes = it.additionalNotes,
+                    goals = it.goals
+                )
+            )
+        }
+
+        // Map general contact inquiries
+        contactInquiriesList.forEach {
+            val rawStatus = it["status"]?.toString() ?: "New"
+            val cleanStatus = when (rawStatus) {
+                "Inquiry Received", "Pending", "New" -> "New"
+                "In Progress" -> "In Progress"
+                "Resolved", "Completed" -> "Completed"
+                "Closed", "Archived" -> "Archived"
+                "Contacted" -> "Contacted"
+                else -> "New"
+            }
+            val timestamp = (it["timestamp"] as? com.google.firebase.Timestamp)?.toDate()?.time
+                ?: it["timestamp"] as? Long 
+                ?: System.currentTimeMillis()
+                
+            list.add(
+                UnifiedInquiry(
+                    id = it["id"]?.toString() ?: "",
+                    userId = it["userId"]?.toString() ?: "",
+                    name = it["name"]?.toString() ?: "General Contact",
+                    email = it["email"]?.toString() ?: "",
+                    phone = it["phone"]?.toString() ?: "",
+                    company = it["company"]?.toString() ?: "",
+                    service = "General Contact",
+                    projectType = "N/A",
+                    budget = "N/A",
+                    timeline = "N/A",
+                    description = it["description"]?.toString() ?: "",
+                    status = cleanStatus,
+                    submittedAt = timestamp,
+                    isProjectInquiry = false
+                )
+            )
+        }
+
+        list
+    }
+
+    val filteredUnifiedInquiries = remember(unifiedInquiriesList, searchQuery, inquiryFilterStatus, inquirySortBy, inquiryTypeFilter) {
+        var list = unifiedInquiriesList.filter {
             val matchesSearch = it.name.contains(searchQuery, ignoreCase = true) ||
+                    it.email.contains(searchQuery, ignoreCase = true) ||
+                    it.phone.contains(searchQuery, ignoreCase = true) ||
                     it.service.contains(searchQuery, ignoreCase = true) ||
-                    it.description.contains(searchQuery, ignoreCase = true)
+                    it.description.contains(searchQuery, ignoreCase = true) ||
+                    it.company.contains(searchQuery, ignoreCase = true)
 
             val matchesStatus = when (inquiryFilterStatus) {
                 "All" -> true
                 else -> it.status.equals(inquiryFilterStatus, ignoreCase = true)
             }
 
-            matchesSearch && matchesStatus
+            val matchesType = when (inquiryTypeFilter) {
+                "Start Project Wizard" -> it.isProjectInquiry
+                "General Contacts" -> !it.isProjectInquiry
+                else -> true
+            }
+
+            matchesSearch && matchesStatus && matchesType
         }
 
         list = when (inquirySortBy) {
             "Name" -> list.sortedBy { it.name.lowercase() }
+            "Oldest" -> list.sortedBy { it.submittedAt }
             else -> list.sortedByDescending { it.submittedAt }
         }
 
         list
     }
 
-    val totalInquiries = filteredInquiries.size
+    val totalInquiries = filteredUnifiedInquiries.size
     val totalInquiryPages = maxOf(1, (totalInquiries + inquiriesPerPage - 1) / inquiriesPerPage)
-    val paginatedInquiries = remember(filteredInquiries, inquiryCurrentPage) {
-        filteredInquiries.drop(inquiryCurrentPage * inquiriesPerPage).take(inquiriesPerPage)
+    val paginatedInquiries = remember(filteredUnifiedInquiries, inquiryCurrentPage) {
+        filteredUnifiedInquiries.drop(inquiryCurrentPage * inquiriesPerPage).take(inquiriesPerPage)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Communications Manager", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, null)
-                    }
-                }
-            )
-        }
+    AdminDrawerLayout(
+        navController = navController,
+        currentRoute = "admin_communications",
+        title = "CRM & Communications"
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -181,7 +294,7 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
                 }
                 Tab(selected = activeTab == 1, onClick = { activeTab = 1 }) {
                     Box(modifier = Modifier.padding(14.dp)) {
-                        Text("Inquiries & Forms", fontWeight = FontWeight.Bold)
+                        Text("Inquiry CRM", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -192,7 +305,7 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text(if (activeTab == 0) "Search active chats..." else "Search inquiries...") },
+                placeholder = { Text(if (activeTab == 0) "Search active chats..." else "Search CRM by name, email, company, content...") },
                 leadingIcon = { Icon(Icons.Default.Search, null) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -212,7 +325,6 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
             } else {
                 if (activeTab == 0) {
                     /* ACTIVE CHATS LIST */
-                    // Filters row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -234,19 +346,27 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .clickable {
-                                    chatSortBy = if (chatSortBy == "Newest") "Name" else "Newest"
+                                    chatSortBy = when (chatSortBy) {
+                                        "Newest" -> "Unread First"
+                                        "Unread First" -> "Name"
+                                        else -> "Newest"
+                                    }
                                 }
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = if (chatSortBy == "Name") "Name A-Z" else "Recent Chat",
+                                    text = when (chatSortBy) {
+                                        "Name" -> "Name A-Z"
+                                        "Unread First" -> "Unread First"
+                                        else -> "Recent Chat"
+                                    },
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Icon(
-                                    imageVector = if (chatSortBy == "Newest") Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                    imageVector = if (chatSortBy == "Name") Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
                                     contentDescription = null,
                                     modifier = Modifier.size(12.dp)
                                 )
@@ -319,8 +439,36 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
                         }
                     }
                 } else {
-                    /* INQUIRIES & CONTACT FORMS LIST */
-                    // Filters row
+                    /* INQUIRIES CRM LIST */
+                    // Type filter selector (Project Wizard vs General Contacts)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("All", "Start Project Wizard", "General Contacts").forEach { typeOpt ->
+                            val isSel = inquiryTypeFilter == typeOpt
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable { inquiryTypeFilter = typeOpt }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    typeOpt,
+                                    color = if (isSel) Color.White else MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    // Status Filters chip row
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -328,7 +476,7 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        listOf("All", "Pending", "In Progress", "Resolved", "Closed").forEach { statusOpt ->
+                        listOf("All", "New", "Contacted", "In Progress", "Completed", "Archived").forEach { statusOpt ->
                             val isSel = inquiryFilterStatus == statusOpt
                             FilterChip(
                                 selected = isSel,
@@ -337,26 +485,34 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
                             )
                         }
 
-                        Spacer(Modifier.weight(1f))
+                        Spacer(Modifier.width(16.dp))
 
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .clickable {
-                                    inquirySortBy = if (inquirySortBy == "Newest") "Name" else "Newest"
+                                    inquirySortBy = when (inquirySortBy) {
+                                        "Newest" -> "Oldest"
+                                        "Oldest" -> "Name"
+                                        else -> "Newest"
+                                    }
                                 }
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = if (inquirySortBy == "Name") "Name A-Z" else "Recent",
+                                    text = when (inquirySortBy) {
+                                        "Name" -> "Name A-Z"
+                                        "Oldest" -> "Oldest First"
+                                        else -> "Newest First"
+                                    },
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Icon(
-                                    imageVector = if (inquirySortBy == "Newest") Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                    imageVector = if (inquirySortBy == "Oldest") Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
                                     contentDescription = null,
                                     modifier = Modifier.size(12.dp)
                                 )
@@ -364,11 +520,11 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
                         }
                     }
 
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(12.dp))
 
-                    if (paginatedInquiries.isEmpty() && contactInquiriesList.isEmpty()) {
+                    if (paginatedInquiries.isEmpty()) {
                         Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                            Text("No inquiries match the filters.")
+                            Text("No CRM inquiries match search or filters.")
                         }
                     } else {
                         Column(modifier = Modifier.weight(1f)) {
@@ -376,72 +532,15 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                if (paginatedInquiries.isNotEmpty()) {
-                                    item {
-                                        Text("Project Inquiries", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                    }
-                                    items(paginatedInquiries, key = { "inq_${it.id}" }) { inquiry ->
-                                        Card(
-                                            shape = RoundedCornerShape(14.dp),
-                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                                        ) {
-                                            Column(modifier = Modifier.padding(16.dp)) {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Text(inquiry.name, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .clip(RoundedCornerShape(6.dp))
-                                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                                                            .clickable {
-                                                                editingInquiry = inquiry
-                                                                selectedStatus = inquiry.status
-                                                            }
-                                                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                                                    ) {
-                                                        Text(inquiry.status, color = MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                                    }
-                                                }
-                                                Spacer(Modifier.height(6.dp))
-                                                Text("Service: ${inquiry.service}", fontWeight = FontWeight.Medium, fontSize = 13.sp)
-                                                Text("Contact: ${inquiry.contact}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                Spacer(Modifier.height(4.dp))
-                                                Text(inquiry.description, style = MaterialTheme.typography.bodyMedium)
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if (contactInquiriesList.isNotEmpty() && inquiryFilterStatus == "All") {
-                                    item {
-                                        Spacer(Modifier.height(16.dp))
-                                        Text("General Contacts / Quotes", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                    }
-                                    items(contactInquiriesList) { contact ->
-                                        Card(
-                                            shape = RoundedCornerShape(14.dp),
-                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                                        ) {
-                                            Column(modifier = Modifier.padding(16.dp)) {
-                                                Text(contact["name"]?.toString() ?: "N/A", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                                                Spacer(Modifier.height(4.dp))
-                                                Text("Email: ${contact["email"]?.toString() ?: "N/A"}", fontSize = 13.sp)
-                                                Text("Phone: ${contact["phone"]?.toString() ?: "N/A"}", fontSize = 13.sp)
-                                                if (contact["company"]?.toString()?.isNotEmpty() == true) {
-                                                    Text("Company: ${contact["company"]?.toString()}", fontSize = 13.sp)
-                                                }
-                                                Spacer(Modifier.height(8.dp))
-                                                Text(contact["description"]?.toString() ?: "", style = MaterialTheme.typography.bodyMedium)
-                                            }
-                                        }
-                                    }
+                                items(paginatedInquiries, key = { "crm_${it.id}" }) { inquiry ->
+                                    CRMInquiryListItem(
+                                        inquiry = inquiry,
+                                        onClick = { selectedInquiryForDetails = inquiry }
+                                    )
                                 }
                             }
 
-                            /* INQUIRIES PAGINATION FOOTER */
+                            /* CRM PAGINATION FOOTER */
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -484,62 +583,479 @@ fun AdminCommunicationManagementScreen(navController: NavController) {
         }
     }
 
-    /* EDIT INQUIRY STATUS DIALOG */
-    editingInquiry?.let { inquiry ->
-        AlertDialog(
-            onDismissRequest = { editingInquiry = null },
-            title = { Text("Update Enquiry Status") },
-            text = {
+    /* FULL-SCREEN CRM INQUIRY DETAILS VIEW DIALOG */
+    selectedInquiryForDetails?.let { inquiry ->
+        Dialog(
+            onDismissRequest = { selectedInquiryForDetails = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
                 Column {
-                    Text("Select new status for this inquiry:")
-                    Spacer(Modifier.height(14.dp))
-                    listOf("Pending", "In Progress", "Resolved", "Closed").forEach { status ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedStatus = status }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(selected = selectedStatus == status, onClick = { selectedStatus = status })
+                    // Header Bar
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(horizontal = 8.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { selectedInquiryForDetails = null }) {
+                                Icon(Icons.Default.Close, "Close details")
+                            }
                             Spacer(Modifier.width(8.dp))
-                            Text(status)
+                            Text(
+                                text = "CRM Inquiry Details",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
+                            )
+                        }
+
+                        // Current CRM Status Badge
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(getStatusColor(inquiry.status).copy(alpha = 0.15f))
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = inquiry.status.uppercase(),
+                                color = getStatusColor(inquiry.status),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    HorizontalDivider()
+
+                    // Scrollable CRM Detail Content
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState())
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        // Client Info Card
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Client Contact Info", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                }
+                                HorizontalDivider()
+                                
+                                DetailFieldRow("Full Name", inquiry.name)
+                                DetailFieldRow("Email Address", inquiry.email.ifBlank { "Not Provided" })
+                                DetailFieldRow("Phone Number", inquiry.phone.ifBlank { "Not Provided" })
+                                DetailFieldRow("Company Name", inquiry.company.ifBlank { "N/A" })
+                            }
+                        }
+
+                        // Project Specs Card
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Assignment, null, tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Project Specifications", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                }
+                                HorizontalDivider()
+                                
+                                DetailFieldRow("Selected Service", inquiry.service)
+                                DetailFieldRow("Project Type", inquiry.projectType)
+                                DetailFieldRow("Budget Range", inquiry.budget)
+                                DetailFieldRow("Timeline Request", inquiry.timeline)
+                                
+                                val sdf = SimpleDateFormat("MMMM dd, yyyy - hh:mm a", Locale.getDefault())
+                                DetailFieldRow("Submission Date", sdf.format(Date(inquiry.submittedAt)))
+                            }
+                        }
+
+                        // Project Goals Card (if present)
+                        if (inquiry.goals.isNotEmpty()) {
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text("Project Goals", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    HorizontalDivider()
+                                    Text(inquiry.goals, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
+
+                        // Requirements (EXACT ORIGINAL MESSAGE - NO TRUNCATION)
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("Exact Original Message (Requirements)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                HorizontalDivider()
+                                Text(
+                                    text = inquiry.description,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    lineHeight = 22.sp
+                                )
+                            }
+                        }
+
+                        // Additional Notes Card (if present)
+                        if (inquiry.additionalNotes.isNotEmpty()) {
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text("Additional Notes", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    HorizontalDivider()
+                                    Text(inquiry.additionalNotes, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
+
+                        // Attachments Card (if present)
+                        if (inquiry.fileUrl.isNotEmpty()) {
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text("Attachments", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    HorizontalDivider()
+                                    
+                                    val isImage = inquiry.fileUrl.contains(".jpg", true) ||
+                                                  inquiry.fileUrl.contains(".jpeg", true) ||
+                                                  inquiry.fileUrl.contains(".png", true) ||
+                                                  inquiry.fileUrl.contains(".webp", true)
+                                    
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                            Icon(Icons.Default.AttachFile, null, tint = MaterialTheme.colorScheme.primary)
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                text = "Attached Asset Reference",
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                        val context = LocalContext.current
+                                        Button(
+                                            onClick = {
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(inquiry.fileUrl))
+                                                context.startActivity(intent)
+                                            },
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Icon(Icons.Default.Download, null, modifier = Modifier.size(16.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Download")
+                                        }
+                                    }
+
+                                    if (isImage) {
+                                        Spacer(Modifier.height(10.dp))
+                                        AsyncImage(
+                                            model = inquiry.fileUrl,
+                                            contentDescription = "Preview Image",
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(180.dp)
+                                                .clip(RoundedCornerShape(8.dp)),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Sticky Bottom CRM Actions Row
+                    Surface(
+                        tonalElevation = 8.dp,
+                        modifier = Modifier.fillMaxWidth(),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("CRM Status Actions", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf("New", "Contacted", "In Progress", "Completed", "Archived").forEach { statusName ->
+                                    val isCurrent = inquiry.status == statusName
+                                    FilterChip(
+                                        selected = isCurrent,
+                                        onClick = {
+                                            coroutineScope.launch {
+                                                val result = if (inquiry.isProjectInquiry) {
+                                                    firebaseService.updateInquiryStatus(inquiry.id, statusName)
+                                                } else {
+                                                    firebaseService.updateContactInquiryStatus(inquiry.id, statusName)
+                                                }
+                                                
+                                                if (result.isSuccess) {
+                                                    if (inquiry.userId.isNotEmpty()) {
+                                                        val notifId = java.util.UUID.randomUUID().toString()
+                                                        val notification = com.nrikesari.app.model.Notification(
+                                                            id = notifId,
+                                                            userId = inquiry.userId,
+                                                            title = "Inquiry Status Updated",
+                                                            message = "Your inquiry for '${inquiry.service}' has been updated to '$statusName'.",
+                                                            type = "inquiry",
+                                                            clickAction = "my_projects",
+                                                            isAdminAlert = false
+                                                        )
+                                                        firebaseService.saveNotification(notification)
+                                                    }
+                                                    
+                                                    // Refresh detail overlay & CRM list
+                                                    selectedInquiryForDetails = inquiry.copy(status = statusName)
+                                                    loadData()
+                                                }
+                                            }
+                                        },
+                                        label = { Text("Mark $statusName") }
+                                    )
+                                }
+                            }
+                            
+                            Button(
+                                onClick = { showDeleteConfirm = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Delete, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Delete Inquiry", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
-            },
+            }
+        }
+    }
+
+    /* DELETE INQUIRY CONFIRMATION DIALOG */
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete Inquiry Profile?") },
+            text = { Text("Are you sure you want to permanently delete this inquiry record? This action is irreversible.") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        coroutineScope.launch {
-                            firebaseService.updateInquiryStatus(inquiry.id, selectedStatus)
-                            if (inquiry.userId.isNotEmpty()) {
-                                val notifId = java.util.UUID.randomUUID().toString()
-                                val notification = com.nrikesari.app.model.Notification(
-                                    id = notifId,
-                                    userId = inquiry.userId,
-                                    title = "Inquiry Status Updated",
-                                    message = "Your inquiry for '${inquiry.service}' has been updated to '$selectedStatus'.",
-                                    type = "inquiry",
-                                    clickAction = "my_projects",
-                                    isAdminAlert = false
-                                )
-                                firebaseService.saveNotification(notification)
+                        showDeleteConfirm = false
+                        val targetInq = selectedInquiryForDetails
+                        if (targetInq != null) {
+                            coroutineScope.launch {
+                                val res = if (targetInq.isProjectInquiry) {
+                                    firebaseService.deleteInquiry(targetInq.id)
+                                } else {
+                                    firebaseService.deleteContactInquiry(targetInq.id)
+                                }
+                                if (res.isSuccess) {
+                                    selectedInquiryForDetails = null
+                                    loadData()
+                                }
                             }
-                            editingInquiry = null
-                            loadData()
                         }
                     }
                 ) {
-                    Text("Update", fontWeight = FontWeight.Bold)
+                    Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { editingInquiry = null }) {
+                TextButton(onClick = { showDeleteConfirm = false }) {
                     Text("Cancel")
                 }
             }
         )
+    }
+}
+
+@Composable
+fun CRMInquiryListItem(
+    inquiry: UnifiedInquiry,
+    onClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    inquiry.name,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                // Color-coded CRM status badge
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(getStatusColor(inquiry.status).copy(alpha = 0.12f))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = inquiry.status,
+                        color = getStatusColor(inquiry.status),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Service Styled Badge
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = inquiry.service,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Client Info Fields
+            if (inquiry.company.isNotEmpty()) {
+                Text(
+                    text = "Company: ${inquiry.company}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (inquiry.email.isNotEmpty() || inquiry.phone.isNotEmpty()) {
+                Text(
+                    text = "Email: ${inquiry.email.ifBlank { "N/A" }} | Phone: ${inquiry.phone.ifBlank { "N/A" }}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Specs Fields
+            if (inquiry.isProjectInquiry) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Type: ${inquiry.projectType} | Budget: ${inquiry.budget} | Timeline: ${inquiry.timeline}",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+
+            // Truncated preview of description
+            Text(
+                text = inquiry.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            if (inquiry.fileUrl.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.AttachFile,
+                        null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        "Attachment Uploaded",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DetailFieldRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+fun getStatusColor(status: String): Color {
+    return when (status.lowercase()) {
+        "new", "pending" -> Color(0xFF0066CC) // Professional Blue
+        "contacted" -> Color(0xFFE28B00) // Amber / Orange
+        "in progress" -> Color(0xFF8E24AA) // Purple
+        "completed", "resolved" -> Color(0xFF2E7D32) // Forest Green
+        else -> Color(0xFF757575) // Dark Gray (Archived/Closed)
     }
 }
 
@@ -580,8 +1096,6 @@ fun ChatListItem(
                     }
                     
                     // Count unread: messages from sender (which is user) that are not read
-                    // Wait, admin needs to read user's messages.
-                    // If senderId == userId, it's a message from user.
                     val userUnread = messagesList.count { it.senderId == inquiry.userId && !it.isRead }
                     unreadCount = userUnread
                     onUnreadUpdate(userUnread)
@@ -654,7 +1168,7 @@ fun ChatListItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = userProfile?.displayName ?: inquiry.name,
+                        text = userProfile?.name ?: inquiry.name,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         color = MaterialTheme.colorScheme.onSurface

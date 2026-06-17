@@ -198,7 +198,10 @@ fun HomeScreen(navController: NavController, userViewModel: UserViewModel) {
 
             Text(
                 text = "Nrikesari is a creative digital agency building modern brands, applications and digital experiences.",
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    lineHeight = 24.sp,
+                    letterSpacing = 0.25.sp
+                ),
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
                 modifier = Modifier.fillMaxWidth()
@@ -225,12 +228,20 @@ fun HomeScreen(navController: NavController, userViewModel: UserViewModel) {
             val firebaseService = remember { FirebaseService() }
             var unreadCount by remember { mutableStateOf(0) }
             
-            DisposableEffect(currentUser.uid) {
-                val listener = firebaseService.listenToUserNotifications(currentUser.uid) { list ->
+            val isAdmin = currentUser.email == "vivekrao9505@gmail.com" || currentUser.email == "anileshwar7@gmail.com"
+            val listenerRegistrations = remember { mutableStateListOf<com.google.firebase.firestore.ListenerRegistration>() }
+            
+            DisposableEffect(currentUser.uid, isAdmin) {
+                listenerRegistrations.forEach { it.remove() }
+                listenerRegistrations.clear()
+                
+                val regs = firebaseService.listenToAllNotificationsForUser(currentUser.uid, isAdmin) { list ->
                     unreadCount = list.count { !it.isRead }
                 }
+                listenerRegistrations.addAll(regs)
+                
                 onDispose {
-                    listener.remove()
+                    listenerRegistrations.forEach { it.remove() }
                 }
             }
             
@@ -389,7 +400,11 @@ fun AnimatedHeroText() {
                     )
                 ) { append("Digital Experiences") }
             },
-            style = MaterialTheme.typography.headlineLarge,
+            style = MaterialTheme.typography.headlineLarge.copy(
+                fontWeight = FontWeight.ExtraBold,
+                lineHeight = 42.sp,
+                letterSpacing = (-0.5).sp
+            ),
             textAlign = TextAlign.Center
         )
     }
@@ -404,7 +419,7 @@ fun ActionButtons(navController: NavController) {
 
 
     Button(
-        onClick = { navController.navigate(Screen.Contact.route) },
+        onClick = { navController.navigate(Screen.ProjectEnquiry.route) },
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
@@ -426,7 +441,7 @@ fun ActionButtons(navController: NavController) {
     Spacer(modifier = Modifier.height(12.dp))
 
     OutlinedButton(
-        onClick = { navController.navigate(Screen.Portfolio.route) },
+        onClick = { navController.navigate(Screen.Projects.route) },
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)

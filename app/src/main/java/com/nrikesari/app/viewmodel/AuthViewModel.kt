@@ -18,6 +18,8 @@ import androidx.lifecycle.ViewModel
 import androidx.navigation.NavController
 
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import android.util.Log
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.android.gms.auth.api.signin.*
 import com.google.android.gms.common.api.ApiException
@@ -97,9 +99,26 @@ class AuthViewModel : ViewModel() {
     }
 
     fun logout() {
-
-        auth.signOut()
-        _authState.value = AuthState.Idle
+        val currentUser = auth.currentUser
+        if (currentUser != null) {
+            Log.d("FCM", "Logging out user: ${currentUser.email}, clearing fcmToken...")
+            FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(currentUser.uid)
+                .update("fcmToken", "")
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        Log.d("FCM", "fcmToken successfully cleared on logout.")
+                    } else {
+                        Log.w("FCM", "Failed to clear fcmToken on logout: ${task.exception?.message}")
+                    }
+                    auth.signOut()
+                    _authState.value = AuthState.Idle
+                }
+        } else {
+            auth.signOut()
+            _authState.value = AuthState.Idle
+        }
     }
 }
 

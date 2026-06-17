@@ -45,31 +45,46 @@ fun NotificationHistoryScreen(navController: NavController) {
     var notificationsList by remember { mutableStateOf<List<Notification>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var selectedFilter by remember { mutableStateOf("All") } // All, Unread, Read
+    var searchQuery by remember { mutableStateOf("") }
 
-    DisposableEffect(user?.uid) {
+    val isAdmin = remember(user) { user?.email == "vivekrao9505@gmail.com" || user?.email == "anileshwar7@gmail.com" }
+
+    val listenerRegistrations = remember { mutableStateListOf<com.google.firebase.firestore.ListenerRegistration>() }
+
+    DisposableEffect(user?.uid, isAdmin) {
         if (user == null) {
             isLoading = false
             onDispose {}
         } else {
-            val listener = firebaseService.listenToUserNotifications(user.uid) { list ->
+            listenerRegistrations.forEach { it.remove() }
+            listenerRegistrations.clear()
+            
+            val regs = firebaseService.listenToAllNotificationsForUser(user.uid, isAdmin) { list ->
                 notificationsList = list
                 isLoading = false
             }
+            listenerRegistrations.addAll(regs)
+            
             onDispose {
-                listener.remove()
+                listenerRegistrations.forEach { it.remove() }
             }
         }
     }
 
-    val filteredNotifications = remember(notificationsList, selectedFilter) {
+    val filteredNotifications = remember(notificationsList, selectedFilter, searchQuery) {
         notificationsList.filter {
-            when (selectedFilter) {
+            val matchesFilter = when (selectedFilter) {
                 "Unread" -> !it.isRead
                 "Read" -> it.isRead
                 else -> true
             }
+            val matchesSearch = it.title.contains(searchQuery, ignoreCase = true) ||
+                    it.message.contains(searchQuery, ignoreCase = true)
+            matchesFilter && matchesSearch
         }
     }
+
+    var showClearAllDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -85,17 +100,48 @@ fun NotificationHistoryScreen(navController: NavController) {
                         TextButton(
                             onClick = {
                                 coroutineScope.launch {
-                                    firebaseService.markAllNotificationsAsRead(user?.uid, isAdmin = false)
+                                    firebaseService.markAllNotificationsAsRead(user?.uid, isAdmin = isAdmin)
                                 }
                             }
                         ) {
                             Text("Mark all read", fontWeight = FontWeight.Bold)
                         }
                     }
+                    if (notificationsList.isNotEmpty()) {
+                        TextButton(
+                            onClick = { showClearAllDialog = true }
+                        ) {
+                            Text("Clear all", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
             )
         }
     ) { padding ->
+        if (showClearAllDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearAllDialog = false },
+                title = { Text("Clear All Notifications") },
+                text = { Text("Are you sure you want to delete all notifications? This action cannot be undone.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showClearAllDialog = false
+                            coroutineScope.launch {
+                                firebaseService.clearAllNotifications(user?.uid, isAdmin = isAdmin)
+                            }
+                        }
+                    ) {
+                        Text("Clear All", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearAllDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -109,12 +155,37 @@ fun NotificationHistoryScreen(navController: NavController) {
                 )
                 .padding(padding)
         ) {
+            /* SEARCH BAR */
+            if (user != null && !isLoading) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Search notifications...") },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Clear, null)
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    )
+                )
+            }
+
             /* FILTER TABS BELOW HEADER */
             if (user != null && !isLoading) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     listOf("All", "Unread", "Read").forEach { filterOpt ->
@@ -135,7 +206,6 @@ fun NotificationHistoryScreen(navController: NavController) {
 
             /* CONTENT AREA */
             if (isLoading) {
-                // Pulser shimmer skeleton list
                 val transition = rememberInfiniteTransition(label = "shimmer")
                 val pulseAlpha by transition.animateFloat(
                     initialValue = 0.4f,
@@ -334,7 +404,51 @@ fun NotificationHistoryCard(
                 )
             }
 
+            Spacer(Modifier.width(8.dp))
+
+            var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+            if (showDeleteConfirmDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteConfirmDialog = false },
+                    title = { Text("Delete Notification") },
+                    text = { Text("Are you sure you want to delete this notification?") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showDeleteConfirmDialog = false
+                                coroutineScope.launch {
+                                    firebaseService.deleteNotification(notification.id)
+                                }
+                            }
+                        ) {
+                            Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
+            IconButton(
+                onClick = {
+                    showDeleteConfirmDialog = true
+                },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete Notification",
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
             if (!notification.isRead) {
+                Spacer(Modifier.width(8.dp))
                 Box(
                     modifier = Modifier
                         .size(8.dp)

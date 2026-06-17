@@ -17,20 +17,28 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Log.d("FCM", "New token: $token")
+        Log.d("FCM", "New token generated: $token")
         
         val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         if (user != null) {
             com.google.firebase.firestore.FirebaseFirestore.getInstance()
                 .collection("users")
                 .document(user.uid)
-                .update("fcmToken", token)
+                .set(mapOf("fcmToken" to token), com.google.firebase.firestore.SetOptions.merge())
+                .addOnSuccessListener {
+                    Log.d("FCM", "Token updated in Firestore successfully: $token")
+                }
+                .addOnFailureListener { e ->
+                    Log.e("FCM", "Failed to update token in Firestore: ${e.message}")
+                }
+        } else {
+            Log.d("FCM", "No user is currently logged in, token not saved to Firestore yet.")
         }
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        Log.d("FCM", "Message received: ${message.notification?.title}")
+        Log.d("FCM", "Message received from FCM: title=${message.notification?.title}, body=${message.notification?.body}, data=${message.data}")
         
         val title = message.notification?.title ?: message.data["title"] ?: "New Notification"
         val body = message.notification?.body ?: message.data["body"] ?: "You have a new update"

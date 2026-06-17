@@ -180,17 +180,10 @@ fun AdminAnalyticsScreen(navController: NavController) {
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Analytics & Reports", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, null)
-                    }
-                }
-            )
-        }
+    AdminDrawerLayout(
+        navController = navController,
+        currentRoute = "admin_analytics",
+        title = "Analytics & Reports"
     ) { padding ->
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {

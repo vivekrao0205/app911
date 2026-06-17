@@ -2,6 +2,7 @@ package com.nrikesari.app.ui.screens.admin
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -19,12 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.compose.ui.platform.LocalContext
 import com.google.firebase.firestore.FirebaseFirestore
 import com.nrikesari.app.firebase.FirebaseService
 import com.nrikesari.app.model.Notification
@@ -35,12 +36,14 @@ import kotlinx.coroutines.launch
 fun AdminNotificationCenterScreen(navController: NavController) {
     val firebaseService = remember { FirebaseService() }
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var alertsList by remember { mutableStateOf<List<Notification>>(emptyList()) }
     var searchQuery by remember { mutableStateOf("") }
     var filterType by remember { mutableStateOf("All") } // All, Registration, Message, Booking, Inquiry
     var showArchived by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
+    var showClearAllDialog by remember { mutableStateOf(false) }
 
     // Table sorting & pagination states
     var sortBy by remember { mutableStateOf("Newest") } // Newest, Oldest, Title
@@ -53,6 +56,10 @@ fun AdminNotificationCenterScreen(navController: NavController) {
     var newMessage by remember { mutableStateOf("") }
     var newType by remember { mutableStateOf("general") }
     var newClickAction by remember { mutableStateOf("") }
+
+    // Live Auditing Logs state
+    val logsList = remember { mutableStateListOf<String>() }
+    var showLogs by remember { mutableStateOf(false) }
 
     // Live Snapshot Listener for notifications
     DisposableEffect(Unit) {
@@ -73,8 +80,8 @@ fun AdminNotificationCenterScreen(navController: NavController) {
         }
     }
 
-    // Reset pagination when filter/search/sort changes
-    LaunchedEffect(searchQuery, filterType, showArchived, sortBy) {
+    // Reset pagination when filter/search/sort changes or notifications list size changes
+    LaunchedEffect(searchQuery, filterType, showArchived, sortBy, alertsList.size) {
         currentPage = 0
     }
 
@@ -103,34 +110,64 @@ fun AdminNotificationCenterScreen(navController: NavController) {
         filteredAlerts.drop(currentPage * itemsPerPage).take(itemsPerPage)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Notification Center", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, null)
+    AdminDrawerLayout(
+        navController = navController,
+        currentRoute = "admin_notifications",
+        title = "Notification Center",
+        actions = {
+            IconButton(onClick = { 
+                showLogs = false
+                logsList.clear()
+                isCreateSheetOpen = true 
+            }) {
+                Icon(Icons.Default.AddCircleOutline, "Send Notification")
+            }
+            if (alertsList.any { !it.isRead && it.status != "Archived" }) {
+                TextButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            firebaseService.markAllNotificationsAsRead(null, isAdmin = true)
+                        }
+                    }
+                ) {
+                    Text("Mark All Read", fontWeight = FontWeight.Bold)
+                }
+            }
+            if (alertsList.isNotEmpty()) {
+                TextButton(
+                    onClick = {
+                        showClearAllDialog = true
+                    }
+                ) {
+                    Text("Clear All", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    ) { padding ->
+        if (showClearAllDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearAllDialog = false },
+                title = { Text("Clear All Alerts") },
+                text = { Text("Are you sure you want to delete all admin alerts? This action cannot be undone.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showClearAllDialog = false
+                            coroutineScope.launch {
+                                firebaseService.clearAllNotifications(null, isAdmin = true)
+                            }
+                        }
+                    ) {
+                        Text("Clear All", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                     }
                 },
-                actions = {
-                    IconButton(onClick = { isCreateSheetOpen = true }) {
-                        Icon(Icons.Default.AddCircleOutline, "Send Notification")
-                    }
-                    if (alertsList.any { !it.isRead && it.status != "Archived" }) {
-                        TextButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    firebaseService.markAllNotificationsAsRead(null, isAdmin = true)
-                                }
-                            }
-                        ) {
-                            Text("Mark All Read", fontWeight = FontWeight.Bold)
-                        }
+                dismissButton = {
+                    TextButton(onClick = { showClearAllDialog = false }) {
+                        Text("Cancel")
                     }
                 }
             )
         }
-    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -379,7 +416,7 @@ fun AdminNotificationCenterScreen(navController: NavController) {
                                 color = if (isSel) Color.White else MaterialTheme.colorScheme.onSurface,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold
-                            )
+                              )
                         }
                     }
                 }
@@ -393,19 +430,57 @@ fun AdminNotificationCenterScreen(navController: NavController) {
                     shape = RoundedCornerShape(12.dp)
                 )
 
+                /* AUDIT & DELIVERY LOGS CONSOLE */
+                if (showLogs) {
+                    Spacer(Modifier.height(4.dp))
+                    Text("Broadcaster Delivery Audit Logs:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF1E1E1E))
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))
+                            .padding(10.dp)
+                    ) {
+                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            items(logsList) { log ->
+                                val color = when {
+                                    log.contains("[SUCCESS]") -> Color(0xFF4CAF50)
+                                    log.contains("[ERROR]") -> Color(0xFFF44336)
+                                    log.contains("[INFO]") -> Color(0xFF2196F3)
+                                    else -> Color(0xFFD4D4D4)
+                                }
+                                Text(
+                                    text = log,
+                                    color = color,
+                                    fontSize = 11.sp,
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                    modifier = Modifier.padding(vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
                 Spacer(Modifier.height(10.dp))
 
                 Button(
                     onClick = {
                         if (newTitle.isBlank() || newMessage.isBlank()) return@Button
                         coroutineScope.launch {
+                            showLogs = true
+                            logsList.clear()
                             firebaseService.broadcastCustomNotification(
+                                context = context,
                                 title = newTitle.trim(),
                                 message = newMessage.trim(),
                                 type = newType,
-                                clickAction = newClickAction.trim()
+                                clickAction = newClickAction.trim(),
+                                onLog = { logMsg ->
+                                    logsList.add(logMsg)
+                                }
                             )
-                            isCreateSheetOpen = false
                             newTitle = ""
                             newMessage = ""
                             newType = "general"
@@ -419,7 +494,7 @@ fun AdminNotificationCenterScreen(navController: NavController) {
                 ) {
                     Icon(Icons.Default.Send, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Broadcast to All Users", fontWeight = FontWeight.Bold)
+                    Text("Broadcast & Dispatch Push", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -439,7 +514,8 @@ fun AdminNotificationItem(
         colors = CardDefaults.cardColors(
             containerColor = if (alert.isRead) MaterialTheme.colorScheme.surface
             else MaterialTheme.colorScheme.primary.copy(alpha = 0.04f)
-        )
+        ),
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier

@@ -45,6 +45,10 @@ fun AdminDashboardScreen(navController: NavController) {
     var latestMessages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
+    var totalUnreadAlerts by remember { mutableStateOf(0) }
+    var newInquiriesCount by remember { mutableStateOf(0) }
+    var activeProjectsCount by remember { mutableStateOf(0) }
+
     var selectedSectionTab by remember { mutableStateOf(0) } // 0 = Alerts, 1 = Latest Inquiries, 2 = Recent Chats
 
     DisposableEffect(Unit) {
@@ -54,15 +58,17 @@ fun AdminDashboardScreen(navController: NavController) {
         }
         val alertsListener = firebaseService.listenToAdminNotifications { updatedAlerts ->
             recentAlerts = updatedAlerts.take(5)
+            totalUnreadAlerts = updatedAlerts.count { !it.isRead }
         }
         
         val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
         val inquiriesListener = db.collection("inquiries")
-            .orderBy("submittedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
-            .limit(5)
             .addSnapshotListener { snapshot, _ ->
                 if (snapshot != null) {
-                    latestInquiries = snapshot.toObjects(ProjectInquiry::class.java)
+                    val allInquiries = snapshot.toObjects(ProjectInquiry::class.java)
+                    latestInquiries = allInquiries.sortedByDescending { it.submittedAt }.take(5)
+                    newInquiriesCount = allInquiries.count { it.status == "New" || it.status == "Inquiry Received" || it.status == "Pending" }
+                    activeProjectsCount = allInquiries.count { it.status == "In Progress" }
                 }
             }
             
@@ -83,33 +89,25 @@ fun AdminDashboardScreen(navController: NavController) {
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Admin Dashboard", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, null)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { navController.navigate("admin_notifications") }) {
-                        Box {
-                            Icon(Icons.Default.Notifications, null)
-                            val unreadCount = recentAlerts.count { !it.isRead }
-                            if (unreadCount > 0) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .align(Alignment.TopEnd)
-                                        .clip(RoundedCornerShape(5.dp))
-                                        .background(MaterialTheme.colorScheme.error)
-                                )
-                            }
-                        }
+    AdminDrawerLayout(
+        navController = navController,
+        currentRoute = "admin_dashboard",
+        title = "Admin Dashboard",
+        actions = {
+            IconButton(onClick = { navController.navigate("admin_notifications") }) {
+                Box {
+                    Icon(Icons.Default.Notifications, null)
+                    if (totalUnreadAlerts > 0) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .align(Alignment.TopEnd)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(MaterialTheme.colorScheme.error)
+                        )
                     }
                 }
-            )
+            }
         }
     ) { padding ->
         if (isLoading) {
@@ -161,26 +159,26 @@ fun AdminDashboardScreen(navController: NavController) {
                                 modifier = Modifier.weight(1f)
                             )
                             StatCardItem(
-                                title = "Active Users",
-                                value = stats["Active Users"]?.toString() ?: "0",
-                                icon = Icons.Default.Person,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            StatCardItem(
                                 title = "Total Projects",
                                 value = stats["Total Projects"]?.toString() ?: "0",
                                 icon = Icons.Default.Work,
                                 modifier = Modifier.weight(1f)
                             )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
                             StatCardItem(
-                                title = "Total Messages",
-                                value = stats["Total Messages"]?.toString() ?: "0",
-                                icon = Icons.Default.ChatBubble,
+                                title = "New Inquiries",
+                                value = newInquiriesCount.toString(),
+                                icon = Icons.Default.Assignment,
+                                modifier = Modifier.weight(1f)
+                            )
+                            StatCardItem(
+                                title = "Active Projects",
+                                value = activeProjectsCount.toString(),
+                                icon = Icons.Default.TrendingUp,
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -189,15 +187,15 @@ fun AdminDashboardScreen(navController: NavController) {
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             StatCardItem(
-                                title = "Total Meetings",
-                                value = stats["Total Bookings"]?.toString() ?: "0",
-                                icon = Icons.Default.CalendarToday,
+                                title = "Notifications Sent",
+                                value = stats["Total Notifications"]?.toString() ?: "0",
+                                icon = Icons.Default.Notifications,
                                 modifier = Modifier.weight(1f)
                             )
                             StatCardItem(
-                                title = "Total Inquiries",
-                                value = stats["Total Inquiries"]?.toString() ?: "0",
-                                icon = Icons.Default.SupportAgent,
+                                title = "Messages Received",
+                                value = stats["Total Messages"]?.toString() ?: "0",
+                                icon = Icons.Default.ChatBubble,
                                 modifier = Modifier.weight(1f)
                             )
                         }

@@ -56,7 +56,7 @@ fun NrikesariNavGraph(
         "admin_dashboard",
         "admin_notifications",
         "admin_users",
-        "admin_communications",
+        "admin_communications?tab={tab}&filter={filter}",
         "admin_projects",
         "admin_analytics"
     )
@@ -138,9 +138,7 @@ fun NrikesariNavGraph(
                 }
             }
 
-            composable(Screen.Portfolio.route) {
-                PortfolioScreen(navController, viewModel)
-            }
+            // Removed Screen.Portfolio.route
 
             composable(
                 route = Screen.ProjectDetail.route,
@@ -267,10 +265,18 @@ fun NrikesariNavGraph(
                 }
             }
 
-            composable("admin_communications") {
+            composable(
+                route = "admin_communications?tab={tab}&filter={filter}",
+                arguments = listOf(
+                    navArgument("tab") { type = NavType.StringType; defaultValue = "chats" },
+                    navArgument("filter") { type = NavType.StringType; defaultValue = "all" }
+                )
+            ) { entry ->
                 val email = FirebaseAuth.getInstance().currentUser?.email
                 if (email == "vivekrao9505@gmail.com" || email == "anileshwar7@gmail.com") {
-                    AdminCommunicationManagementScreen(navController)
+                    val tab = entry.arguments?.getString("tab") ?: "chats"
+                    val filter = entry.arguments?.getString("filter") ?: "all"
+                    AdminCommunicationManagementScreen(navController, tab, filter)
                 } else {
                     AccessDeniedScreen(navController)
                 }

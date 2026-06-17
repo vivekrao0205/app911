@@ -8,6 +8,8 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -67,18 +69,56 @@ fun ProjectsScreen(navController: NavController) {
         "All",
         "Web Development",
         "App Development",
-        "Content Creation",
         "Graphic Design",
         "Video Editing",
-        "Branding",
+        "3D / VFX",
+        "Product Visualization",
+        "Content Creation",
         "Digital Marketing"
     )
 
     val filteredProjects = remember(projectsList, searchQuery, selectedCategory, selectedStatus, sortBy) {
-        var list = projectsList.filter {
-            (selectedCategory == "All" || it.category.equals(selectedCategory, ignoreCase = true)) &&
-            (selectedStatus == "All" || it.status.equals(selectedStatus, ignoreCase = true)) &&
-            (searchQuery.isBlank() || it.title.contains(searchQuery, ignoreCase = true) || it.shortDescription.contains(searchQuery, ignoreCase = true))
+        var list = projectsList.filter { proj ->
+            val matchesCategory = if (selectedCategory == "All") {
+                true
+            } else {
+                val projectParts = proj.category.split(",").map { it.trim().lowercase() }
+                projectParts.any { part ->
+                    when (selectedCategory) {
+                        "Web Development" -> {
+                            part.contains("web") || part.contains("website")
+                        }
+                        "App Development" -> {
+                            part.contains("app") || part.contains("mobile") || part.contains("android") || part.contains("ios") || part.contains("application")
+                        }
+                        "Graphic Design" -> {
+                            part.contains("graphic") || part.contains("design") || part.contains("logo") || part.contains("brand") || part.contains("ui") || part.contains("ux")
+                        }
+                        "Video Editing" -> {
+                            part.contains("video") || part.contains("edit") || part.contains("motion") || part.contains("film") || part.contains("youtube")
+                        }
+                        "3D / VFX" -> {
+                            part.contains("3d") || part.contains("vfx") || part.contains("cgi") || part.contains("animation") || part.contains("render")
+                        }
+                        "Product Visualization" -> {
+                            part.contains("product") || part.contains("visual") || part.contains("render") || part.contains("mockup")
+                        }
+                        "Content Creation" -> {
+                            part.contains("content") || part.contains("creation") || part.contains("write") || part.contains("writing") || part.contains("blog")
+                        }
+                        "Digital Marketing" -> {
+                            part.contains("marketing") || part.contains("digital") || part.contains("social") || part.contains("seo") || part.contains("campaign")
+                        }
+                        else -> part.contains(selectedCategory.lowercase())
+                    }
+                }
+            }
+            val matchesStatus = selectedStatus == "All" || proj.status.equals(selectedStatus, ignoreCase = true)
+            val matchesSearch = searchQuery.isBlank() || 
+                    proj.title.contains(searchQuery, ignoreCase = true) || 
+                    proj.shortDescription.contains(searchQuery, ignoreCase = true)
+            
+            matchesCategory && matchesStatus && matchesSearch
         }
 
         if (sortBy == "Newest") {
@@ -113,13 +153,17 @@ fun ProjectsScreen(navController: NavController) {
                     text = "Dynamic Projects",
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    lineHeight = 38.sp,
+                    letterSpacing = (-0.5).sp
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
                     text = "Explore our latest web, mobile app, and design creations updated in real-time.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    lineHeight = 22.sp,
+                    letterSpacing = 0.25.sp
                 )
                 Spacer(Modifier.height(20.dp))
             }
@@ -164,15 +208,17 @@ fun ProjectsScreen(navController: NavController) {
                         )
                         Spacer(Modifier.height(6.dp))
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             listOf("All", "Ongoing", "Completed", "Upcoming").forEach { statusOpt ->
                                 val isSelected = selectedStatus == statusOpt
-                                FilterChip(
+                                PremiumFilterChip(
+                                    text = statusOpt,
                                     selected = isSelected,
-                                    onClick = { selectedStatus = statusOpt },
-                                    label = { Text(statusOpt) }
+                                    onClick = { selectedStatus = statusOpt }
                                 )
                             }
                         }
@@ -193,10 +239,10 @@ fun ProjectsScreen(navController: NavController) {
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             categories.forEach { cat ->
-                                FilterChip(
+                                PremiumFilterChip(
+                                    text = cat,
                                     selected = selectedCategory == cat,
-                                    onClick = { selectedCategory = cat },
-                                    label = { Text(cat) }
+                                    onClick = { selectedCategory = cat }
                                 )
                             }
                         }
@@ -285,6 +331,7 @@ fun ProjectsScreen(navController: NavController) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DynamicProjectCard(project: DynamicProject, index: Int, onClick: () -> Unit) {
     var visible by remember { mutableStateOf(false) }
@@ -410,77 +457,142 @@ fun DynamicProjectCard(project: DynamicProject, index: Int, onClick: () -> Unit)
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(12.dp))
 
-                    /* BOTTOM ACTION AND TECH ROW */
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        /* TECH STACK CHIPS */
-                        Row(
+                    /* TECH STACK CHIPS (Wrapped using FlowRow) */
+                    if (project.technologiesUsed.isNotEmpty()) {
+                        FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.weight(1f)
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            if (project.technologiesUsed.isNotEmpty()) {
-                                project.technologiesUsed.take(3).forEach { tech ->
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.05f))
-                                            .border(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
-                                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                                    ) {
-                                        Text(
-                                            text = tech,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                    }
+                            project.technologiesUsed.take(4).forEach { tech ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.05f))
+                                        .border(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = tech,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
                                 }
-                                if (project.technologiesUsed.size > 3) {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                                    ) {
-                                        Text(
-                                            text = "+${project.technologiesUsed.size - 3}",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
+                            }
+                            if (project.technologiesUsed.size > 4) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = "+${project.technologiesUsed.size - 4}",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
                         }
+                        Spacer(Modifier.height(14.dp))
+                    }
 
-                        /* DIRECT LIVE LINK ACTION BUTTON */
+                    /* DUAL ACTIONS BUTTON ROW */
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = onClick,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        ) {
+                            Text("View Project", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+
                         if (project.projectUrl.isNotEmpty()) {
                             val context = LocalContext.current
-                            FilledTonalIconButton(
+                            Button(
                                 onClick = {
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(project.projectUrl))
                                     context.startActivity(intent)
                                 },
-                                modifier = Modifier.size(36.dp),
-                                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                    contentColor = MaterialTheme.colorScheme.primary
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
                                 )
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Launch,
-                                    contentDescription = "Visit Live URL",
-                                    modifier = Modifier.size(16.dp)
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp)
                                 )
+                                Spacer(Modifier.width(6.dp))
+                                Text("Live Project", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun PremiumFilterChip(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .height(38.dp)
+            .clip(RoundedCornerShape(50.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(50.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        },
+        contentColor = if (selected) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        border = BorderStroke(
+            1.dp,
+            if (selected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            }
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxHeight(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                fontSize = 14.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1,
+                softWrap = false
+            )
         }
     }
 }

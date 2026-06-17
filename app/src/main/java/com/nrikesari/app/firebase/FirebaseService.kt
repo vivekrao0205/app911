@@ -1,6 +1,8 @@
 package com.nrikesari.app.firebase
 
+import android.content.Context
 import android.net.Uri
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FieldValue
@@ -390,14 +392,25 @@ class FirebaseService {
         }
     }
 
-    suspend fun broadcastCustomNotification(title: String, message: String, type: String = "general", clickAction: String = ""): Result<Unit> {
+    suspend fun broadcastCustomNotification(
+        @Suppress("UNUSED_PARAMETER") context: Context,
+        title: String,
+        message: String,
+        type: String = "general",
+        clickAction: String = "",
+        onLog: (String) -> Unit = {}
+    ): Result<Unit> {
         return try {
+            onLog("Firestore: Fetching registered users...")
             val usersResult = getAllUsers()
             if (usersResult.isSuccess) {
                 val allUsers = usersResult.getOrDefault(emptyList())
+                onLog("Firestore: Found ${allUsers.size} user profiles.")
+                var successCount = 0
+                
                 for (user in allUsers) {
                     if (user.uid.isNotEmpty()) {
-                        val notifId = UUID.randomUUID().toString()
+                        val notifId = java.util.UUID.randomUUID().toString()
                         val notification = Notification(
                             id = notifId,
                             userId = user.uid,
@@ -407,10 +420,49 @@ class FirebaseService {
                             clickAction = clickAction,
                             isAdminAlert = false
                         )
-                        saveNotification(notification)
+                        val saveRes = saveNotification(notification)
+                        if (saveRes.isSuccess) {
+                            onLog("Firestore: Saved notification document for ${user.displayName}")
+                            successCount++
+                        } else {
+                            onLog("Firestore [ERROR]: Failed to save notification for ${user.displayName}: ${saveRes.exceptionOrNull()?.message}")
+                        }
                     }
                 }
+                onLog("Broadcast Summary - Success: $successCount, Total Users: ${allUsers.size}")
+            } else {
+                val err = usersResult.exceptionOrNull()?.message ?: "Unknown error"
+                onLog("Firestore [ERROR]: Failed to fetch users: $err")
+                return Result.failure(Exception(err))
             }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            onLog("Firestore [EXCEPTION]: Fatal error during broadcast: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteInquiry(inquiryId: String): Result<Unit> {
+        return try {
+            inquiries.document(inquiryId).delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateContactInquiryStatus(inquiryId: String, status: String): Result<Unit> {
+        return try {
+            firestore.collection("contact_inquiries").document(inquiryId).update("status", status).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteContactInquiry(inquiryId: String): Result<Unit> {
+        return try {
+            firestore.collection("contact_inquiries").document(inquiryId).delete().await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -501,14 +553,36 @@ class FirebaseService {
 
     suspend fun markAllNotificationsAsRead(userId: String?, isAdmin: Boolean): Result<Unit> {
         return try {
-            val query = if (isAdmin) {
-                firestore.collection("notifications").whereEqualTo("adminAlert", true).whereEqualTo("read", false)
-            } else {
-                firestore.collection("notifications").whereEqualTo("userId", userId).whereEqualTo("read", false)
-            }
-            val snapshot = query.get().await()
             val batch = firestore.batch()
-            for (doc in snapshot.documents) {
+            val docsToUpdate = mutableSetOf<com.google.firebase.firestore.DocumentSnapshot>()
+            
+            if (isAdmin && userId == null) {
+                val allSnap = firestore.collection("notifications")
+                    .whereEqualTo("read", false)
+                    .get()
+                    .await()
+                docsToUpdate.addAll(allSnap.documents)
+            } else {
+                if (isAdmin) {
+                    val adminSnap = firestore.collection("notifications")
+                        .whereEqualTo("adminAlert", true)
+                        .whereEqualTo("read", false)
+                        .get()
+                        .await()
+                    docsToUpdate.addAll(adminSnap.documents)
+                }
+                
+                if (userId != null && userId.isNotEmpty()) {
+                    val userSnap = firestore.collection("notifications")
+                        .whereEqualTo("userId", userId)
+                        .whereEqualTo("read", false)
+                        .get()
+                        .await()
+                    docsToUpdate.addAll(userSnap.documents)
+                }
+            }
+            
+            for (doc in docsToUpdate) {
                 batch.update(doc.reference, "read", true)
             }
             batch.commit().await()
@@ -521,6 +595,44 @@ class FirebaseService {
     suspend fun deleteNotification(notificationId: String): Result<Unit> {
         return try {
             firestore.collection("notifications").document(notificationId).delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun clearAllNotifications(userId: String?, isAdmin: Boolean): Result<Unit> {
+        return try {
+            val batch = firestore.batch()
+            val docsToDelete = mutableSetOf<com.google.firebase.firestore.DocumentSnapshot>()
+            
+            if (isAdmin && userId == null) {
+                val allSnap = firestore.collection("notifications")
+                    .get()
+                    .await()
+                docsToDelete.addAll(allSnap.documents)
+            } else {
+                if (isAdmin) {
+                    val adminSnap = firestore.collection("notifications")
+                        .whereEqualTo("adminAlert", true)
+                        .get()
+                        .await()
+                    docsToDelete.addAll(adminSnap.documents)
+                }
+                
+                if (userId != null && userId.isNotEmpty()) {
+                    val userSnap = firestore.collection("notifications")
+                        .whereEqualTo("userId", userId)
+                        .get()
+                        .await()
+                    docsToDelete.addAll(userSnap.documents)
+                }
+            }
+            
+            for (doc in docsToDelete) {
+                batch.delete(doc.reference)
+            }
+            batch.commit().await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -756,6 +868,48 @@ class FirebaseService {
                 triggerUpdate()
             }
         })
+        
+        return regs
+    }
+
+    fun listenToAllNotificationsForUser(
+        userId: String,
+        isAdmin: Boolean,
+        onUpdate: (List<Notification>) -> Unit
+    ): List<com.google.firebase.firestore.ListenerRegistration> {
+        val regs = mutableListOf<com.google.firebase.firestore.ListenerRegistration>()
+        
+        var userNotifs = emptyList<Notification>()
+        var adminNotifs = emptyList<Notification>()
+        
+        fun triggerUpdate() {
+            val combined = (userNotifs + adminNotifs).distinctBy { it.id }.sortedByDescending { it.timestamp }
+            onUpdate(combined)
+        }
+        
+        regs.add(
+            firestore.collection("notifications")
+                .whereEqualTo("userId", userId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error == null && snapshot != null) {
+                        userNotifs = snapshot.documents.mapNotNull { it.toObject(Notification::class.java) }
+                        triggerUpdate()
+                    }
+                }
+        )
+        
+        if (isAdmin) {
+            regs.add(
+                firestore.collection("notifications")
+                    .whereEqualTo("adminAlert", true)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error == null && snapshot != null) {
+                            adminNotifs = snapshot.documents.mapNotNull { it.toObject(Notification::class.java) }
+                            triggerUpdate()
+                        }
+                    }
+            )
+        }
         
         return regs
     }

@@ -27,6 +27,12 @@ import com.nrikesari.app.viewmodel.UserViewModel
 import com.nrikesari.app.firebase.FirebaseService
 
 import android.content.Intent
+import android.os.Build
+import android.content.pm.PackageManager
+import android.util.Log
+import androidx.core.content.ContextCompat
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 
 class MainActivity : ComponentActivity() {
 
@@ -65,6 +71,37 @@ class MainActivity : ComponentActivity() {
 
                 val navController = rememberNavController()
 
+                val permissionLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestPermission()
+                ) { isGranted ->
+                    Log.d("FCM", "POST_NOTIFICATIONS permission request result: $isGranted")
+                }
+
+                LaunchedEffect(Unit) {
+                    Log.d("FCM", "App started, checking notification permissions...")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        val permissionCheck = ContextCompat.checkSelfPermission(
+                            context,
+                            android.Manifest.permission.POST_NOTIFICATIONS
+                        )
+                        if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+                            Log.d("FCM", "Notification permission not granted, requesting...")
+                            permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            Log.d("FCM", "Notification permission already granted.")
+                        }
+                    }
+                    
+                    // Fetch token on startup to verify setup and log status
+                    FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            Log.d("FCM", "Token successfully fetched on startup: ${task.result}")
+                        } else {
+                            Log.e("FCM", "Failed to fetch FCM token on startup: ${task.exception?.message}")
+                        }
+                    }
+                }
+
                 val database = AppDatabase.getDatabase(context)
                 val repository = AppRepository(database.appDao())
 
@@ -87,6 +124,7 @@ class MainActivity : ComponentActivity() {
                             FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
                                 if (task.isSuccessful) {
                                     val token = task.result
+                                    Log.d("FCM", "Token successfully fetched on login: $token")
                                     val data = hashMapOf<String, Any>(
                                         "uid" to user.uid,
                                         "email" to (user.email ?: ""),
@@ -126,47 +164,40 @@ class MainActivity : ComponentActivity() {
                 // Global real-time local notifications listener
                 val firebaseService = remember { FirebaseService() }
                 val notifiedIds = remember { mutableSetOf<String>() }
-                val listenerRegistration = remember { mutableStateOf<com.google.firebase.firestore.ListenerRegistration?>(null) }
+                val listenerRegistrations = remember { mutableStateListOf<com.google.firebase.firestore.ListenerRegistration>() }
+                val appStartTimestamp = remember { System.currentTimeMillis() }
 
                 LaunchedEffect(authState) {
-                    listenerRegistration.value?.remove()
-                    listenerRegistration.value = null
+                    listenerRegistrations.forEach { it.remove() }
+                    listenerRegistrations.clear()
                     
                     val currentUser = FirebaseAuth.getInstance().currentUser
                     if (currentUser != null) {
                         val isAdmin = currentUser.email == "vivekrao9505@gmail.com" || currentUser.email == "anileshwar7@gmail.com"
                         val callback = { list: List<com.nrikesari.app.model.Notification> ->
-                            val now = System.currentTimeMillis()
                             list.forEach { notif ->
-                                // Check if notification is less than 2 minutes old and has not been notified yet in this session
-                                val isRecent = (now - notif.timestamp) < 120000
-                                if (isRecent && !notifiedIds.contains(notif.id)) {
+                                if (!notif.isRead && notif.timestamp >= appStartTimestamp && !notifiedIds.contains(notif.id)) {
                                     notifiedIds.add(notif.id)
-                                    // Trigger local notification outside the app!
                                     com.nrikesari.app.service.MyFirebaseMessagingService.showNotification(
                                         context,
                                         notif.title,
                                         notif.message,
                                         notif.clickAction
                                     )
-                                } else {
-                                    // Make sure we mark old notifications as notified so we don't trigger them on startup
+                                } else if (notif.isRead || notif.timestamp < appStartTimestamp) {
                                     notifiedIds.add(notif.id)
                                 }
                             }
                         }
                         
-                        if (isAdmin) {
-                            listenerRegistration.value = firebaseService.listenToAdminNotifications(callback)
-                        } else {
-                            listenerRegistration.value = firebaseService.listenToUserNotifications(currentUser.uid, callback)
-                        }
+                        val regs = firebaseService.listenToAllNotificationsForUser(currentUser.uid, isAdmin, callback)
+                        listenerRegistrations.addAll(regs)
                     }
                 }
                 
                 DisposableEffect(Unit) {
                     onDispose {
-                        listenerRegistration.value?.remove()
+                        listenerRegistrations.forEach { it.remove() }
                     }
                 }
 

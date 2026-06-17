@@ -138,21 +138,14 @@ fun AdminProjectManagementScreen(navController: NavController) {
         isFormOpen = true
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Portfolio Manager", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, null)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { openForm(null) }) {
-                        Icon(Icons.Default.Add, "Add Project")
-                    }
-                }
-            )
+    AdminDrawerLayout(
+        navController = navController,
+        currentRoute = "admin_projects",
+        title = "Portfolio Manager",
+        actions = {
+            IconButton(onClick = { openForm(null) }) {
+                Icon(Icons.Default.Add, "Add Project")
+            }
         }
     ) { paddingValues ->
         if (isLoading) {

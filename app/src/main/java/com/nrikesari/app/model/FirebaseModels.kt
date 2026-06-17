@@ -13,7 +13,8 @@ data class User(
     val phone: String = "",
     val profileImageUrl: String = "",
     val joinedAt: Long = System.currentTimeMillis(),
-    val accountStatus: String = "active"
+    val accountStatus: String = "active",
+    val fcmToken: String = ""
 ) {
     val displayName: String
         get() = if (name.isNotBlank()) name else email
@@ -31,7 +32,16 @@ data class ProjectInquiry(
     val description: String = "",
     val status: String = "Inquiry Received",
     val submittedAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val email: String = "",
+    val phone: String = "",
+    val companyName: String = "",
+    val projectType: String = "",
+    val budgetRange: String = "",
+    val timeline: String = "",
+    val goals: String = "",
+    val fileUrl: String = "",
+    val additionalNotes: String = ""
 )
 
 

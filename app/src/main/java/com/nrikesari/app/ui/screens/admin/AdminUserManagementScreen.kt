@@ -117,17 +117,10 @@ fun AdminUserManagementScreen(navController: NavController) {
         filteredUsers.drop(currentPage * itemsPerPage).take(itemsPerPage)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("User Management", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, null)
-                    }
-                }
-            )
-        }
+    AdminDrawerLayout(
+        navController = navController,
+        currentRoute = "admin_users",
+        title = "User Management"
     ) { padding ->
         Column(
             modifier = Modifier
