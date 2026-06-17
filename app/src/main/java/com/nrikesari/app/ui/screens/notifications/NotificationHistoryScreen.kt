@@ -12,8 +12,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -37,6 +44,7 @@ fun NotificationHistoryScreen(navController: NavController) {
 
     var notificationsList by remember { mutableStateOf<List<Notification>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var selectedFilter by remember { mutableStateOf("All") } // All, Unread, Read
 
     DisposableEffect(user?.uid) {
         if (user == null) {
@@ -49,6 +57,16 @@ fun NotificationHistoryScreen(navController: NavController) {
             }
             onDispose {
                 listener.remove()
+            }
+        }
+    }
+
+    val filteredNotifications = remember(notificationsList, selectedFilter) {
+        notificationsList.filter {
+            when (selectedFilter) {
+                "Unread" -> !it.isRead
+                "Read" -> it.isRead
+                else -> true
             }
         }
     }
@@ -78,79 +96,152 @@ fun NotificationHistoryScreen(navController: NavController) {
             )
         }
     ) { padding ->
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else if (user == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Please log in to view notification history.")
-            }
-        } else if (notificationsList.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.background,
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.02f)
-                            )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.background,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.02f)
                         )
+                    )
+                )
+                .padding(padding)
+        ) {
+            /* FILTER TABS BELOW HEADER */
+            if (user != null && !isLoading) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("All", "Unread", "Read").forEach { filterOpt ->
+                        val isSelected = selectedFilter == filterOpt
+                        val count = when (filterOpt) {
+                            "Unread" -> notificationsList.count { !it.isRead }
+                            "Read" -> notificationsList.count { it.isRead }
+                            else -> notificationsList.size
+                        }
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedFilter = filterOpt },
+                            label = { Text("$filterOpt ($count)") }
+                        )
+                    }
+                }
+            }
+
+            /* CONTENT AREA */
+            if (isLoading) {
+                // Pulser shimmer skeleton list
+                val transition = rememberInfiniteTransition(label = "shimmer")
+                val pulseAlpha by transition.animateFloat(
+                    initialValue = 0.4f,
+                    targetValue = 0.85f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1000, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse
                     ),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.NotificationsOff,
-                        null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        "All Caught Up!",
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "You have no notifications at this time.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    label = "pulseAlpha"
+                )
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp)
+                ) {
+                    items(5) {
+                        NotificationSkeletonCard(modifier = Modifier.alpha(pulseAlpha))
+                    }
+                }
+            } else if (user == null) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Please log in to view notification history.")
+                }
+            } else if (filteredNotifications.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.NotificationsOff,
+                            null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            text = if (selectedFilter == "Unread") "No unread alerts!" else "All Caught Up!",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = if (selectedFilter == "Unread") "You have read all notifications." else "You have no notifications in this section.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp)
+                ) {
+                    items(filteredNotifications, key = { notif -> notif.id }) { notif ->
+                        NotificationHistoryCard(notif, firebaseService, navController)
+                    }
                 }
             }
-        } else {
-            LazyColumn(
+        }
+    }
+}
+
+@Composable
+fun NotificationSkeletonCard(modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.background,
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.02f)
-                            )
-                        )
-                    )
-                    .padding(padding)
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 16.dp)
-            ) {
-                items(notificationsList, key = { it.id }) { notif ->
-                    NotificationHistoryCard(notif, firebaseService, navController)
-                }
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            )
+            Spacer(Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.4f)
+                        .height(16.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                )
+                Spacer(Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.8f)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                )
             }
         }
     }

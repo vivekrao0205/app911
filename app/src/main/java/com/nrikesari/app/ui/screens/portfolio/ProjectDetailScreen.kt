@@ -5,36 +5,51 @@ import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Launch
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
 import com.google.firebase.auth.FirebaseAuth
 import com.nrikesari.app.model.DynamicProject
 import com.nrikesari.app.navigation.Screen
 import com.nrikesari.app.viewmodel.AuthViewModel
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ProjectDetailScreen(
     navController: NavController,
@@ -43,6 +58,10 @@ fun ProjectDetailScreen(
 ) {
     val context = LocalContext.current
     val currentUser = FirebaseAuth.getInstance().currentUser
+    val coroutineScope = rememberCoroutineScope()
+
+    // Full screen gallery state
+    var selectedImageIndex by remember { mutableStateOf<Int?>(null) }
 
     Scaffold(
         topBar = {
@@ -85,7 +104,7 @@ fun ProjectDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             /* HERO COVER IMAGE BANNER */
             item {
@@ -95,12 +114,21 @@ fun ProjectDetailScreen(
                         .height(240.dp)
                 ) {
                     if (project.coverImage.isNotEmpty()) {
-                        AsyncImage(
-                            model = project.coverImage,
-                            contentDescription = project.title,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
+                        var isImageLoading by remember { mutableStateOf(true) }
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            AsyncImage(
+                                model = project.coverImage,
+                                contentDescription = project.title,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                                onState = { state ->
+                                    isImageLoading = state is AsyncImagePainter.State.Loading
+                                }
+                            )
+                            if (isImageLoading) {
+                                CircularProgressIndicator()
+                            }
+                        }
                     } else {
                         Box(
                             modifier = Modifier
@@ -129,7 +157,7 @@ fun ProjectDetailScreen(
                         letterSpacing = 1.sp
                     )
 
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
 
                     Text(
                         text = project.title,
@@ -137,7 +165,7 @@ fun ProjectDetailScreen(
                         fontWeight = FontWeight.Bold
                     )
 
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(12.dp))
 
                     /* QUICK STATISTICS CARD */
                     Surface(
@@ -169,7 +197,7 @@ fun ProjectDetailScreen(
                         }
                     }
 
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(16.dp))
 
                     /* OVERVIEW & DESCRIPTION */
                     Text(
@@ -177,7 +205,7 @@ fun ProjectDetailScreen(
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         project.shortDescription,
                         style = MaterialTheme.typography.bodyLarge,
@@ -185,7 +213,7 @@ fun ProjectDetailScreen(
                     )
 
                     if (project.fullDescription.isNotEmpty()) {
-                        Spacer(Modifier.height(16.dp))
+                        Spacer(Modifier.height(10.dp))
                         Text(
                             project.fullDescription,
                             style = MaterialTheme.typography.bodyMedium,
@@ -193,16 +221,15 @@ fun ProjectDetailScreen(
                         )
                     }
 
-                    Spacer(Modifier.height(24.dp))
-
                     /* TECHNOLOGIES USED */
                     if (project.technologiesUsed.isNotEmpty()) {
+                        Spacer(Modifier.height(16.dp))
                         Text(
                             "Technologies Used",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(8.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -224,7 +251,6 @@ fun ProjectDetailScreen(
                                 }
                             }
                         }
-                        Spacer(Modifier.height(24.dp))
                     }
                 }
             }
@@ -239,26 +265,36 @@ fun ProjectDetailScreen(
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 20.dp)
                         )
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(8.dp))
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 20.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            items(project.galleryImages) { url ->
+                            itemsIndexed(project.galleryImages) { idx, url ->
                                 Surface(
                                     modifier = Modifier
                                         .width(260.dp)
-                                        .height(160.dp),
+                                        .height(160.dp)
+                                        .clickable { selectedImageIndex = idx },
                                     shape = RoundedCornerShape(16.dp),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                                 ) {
-                                    AsyncImage(
-                                        model = url,
-                                        contentDescription = "Gallery Image",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
+                                    var isImageLoading by remember { mutableStateOf(true) }
+                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                        AsyncImage(
+                                            model = url,
+                                            contentDescription = "Gallery Image",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop,
+                                            onState = { state ->
+                                                isImageLoading = state is AsyncImagePainter.State.Loading
+                                            }
+                                        )
+                                        if (isImageLoading) {
+                                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -279,7 +315,7 @@ fun ProjectDetailScreen(
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(8.dp))
 
                         if (project.projectUrl.isNotEmpty()) {
                             Button(
@@ -315,7 +351,143 @@ fun ProjectDetailScreen(
                 }
             }
 
-            item { Spacer(Modifier.height(80.dp)) }
+            item { Spacer(Modifier.height(60.dp)) }
         }
     }
-}
+
+    /* PREMIUM FULL SCREEN IMAGE VIEW DIALOG */
+    if (selectedImageIndex != null) {
+        val initialIdx = selectedImageIndex!!
+        val pagerState = rememberPagerState(initialPage = initialIdx, pageCount = { project.galleryImages.size })
+
+        Dialog(
+            onDismissRequest = { selectedImageIndex = null },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false
+            )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.95f))
+                    .systemBarsPadding()
+            ) {
+                // Horizontal pager swipe viewer
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    val url = project.galleryImages[page]
+                    var scale by remember { mutableStateOf(1f) }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(Unit) {
+                                detectTransformGestures { _, _, zoom, _ ->
+                                    scale = (scale * zoom).coerceIn(1f, 4f)
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        var isImageLoading by remember { mutableStateOf(true) }
+                        Box(contentAlignment = Alignment.Center) {
+                            AsyncImage(
+                                model = url,
+                                contentDescription = "Fullscreen Gallery Image Preview",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(16f / 9f)
+                                    .graphicsLayer(
+                                        scaleX = scale,
+                                        scaleY = scale
+                                    ),
+                                contentScale = ContentScale.Fit,
+                                onState = { state ->
+                                    isImageLoading = state is AsyncImagePainter.State.Loading
+                                }
+                            )
+                            if (isImageLoading) {
+                                CircularProgressIndicator(color = Color.White)
+                            }
+                        }
+                    }
+                }
+
+                // Header details
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                        .padding(20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Image ${pagerState.currentPage + 1} of ${project.galleryImages.size}",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+
+                    IconButton(
+                        onClick = { selectedImageIndex = null },
+                        modifier = Modifier
+                            .background(Color.White.copy(alpha = 0.15f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close Fullscreen",
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                // Previous navigation arrow
+                if (pagerState.currentPage > 0) {
+                    IconButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                            }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(16.dp)
+                            .background(Color.White.copy(alpha = 0.15f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ChevronLeft,
+                            contentDescription = "Previous Image",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+
+                // Next navigation arrow
+                if (pagerState.currentPage < project.galleryImages.size - 1) {
+                    IconButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                            }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(16.dp)
+                            .background(Color.White.copy(alpha = 0.15f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = "Next Image",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

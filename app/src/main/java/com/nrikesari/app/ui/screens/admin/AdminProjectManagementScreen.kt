@@ -3,6 +3,7 @@ package com.nrikesari.app.ui.screens.admin
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,6 +35,14 @@ fun AdminProjectManagementScreen(navController: NavController) {
 
     var projectsList by remember { mutableStateOf<List<DynamicProject>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+
+    // Search, Filter, Sort, Pagination States
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedStatusFilter by remember { mutableStateOf("All") } // All, Published, Unpublished
+    var selectedCategoryFilter by remember { mutableStateOf("All") }
+    var sortBy by remember { mutableStateOf("Newest") } // Newest, Oldest, Title
+    var currentPage by remember { mutableStateOf(0) }
+    val itemsPerPage = 6
 
     // Form editing state
     var isFormOpen by remember { mutableStateOf(false) }
@@ -67,6 +76,48 @@ fun AdminProjectManagementScreen(navController: NavController) {
 
     LaunchedEffect(Unit) {
         loadProjects()
+    }
+
+    // Reset pagination when search/filters/sorting changes
+    LaunchedEffect(searchQuery, selectedStatusFilter, selectedCategoryFilter, sortBy) {
+        currentPage = 0
+    }
+
+    val categoriesList = remember(projectsList) {
+        listOf("All") + projectsList.map { it.category }.distinct().filter { it.isNotBlank() }
+    }
+
+    val filteredProjects = remember(projectsList, searchQuery, selectedStatusFilter, selectedCategoryFilter, sortBy) {
+        var list = projectsList.filter { proj ->
+            val matchesSearch = proj.title.contains(searchQuery, ignoreCase = true) ||
+                    proj.category.contains(searchQuery, ignoreCase = true) ||
+                    proj.shortDescription.contains(searchQuery, ignoreCase = true)
+            
+            val matchesStatus = when (selectedStatusFilter) {
+                "Published" -> proj.isPublished
+                "Unpublished" -> !proj.isPublished
+                else -> true
+            }
+
+            val matchesCategory = selectedCategoryFilter == "All" || proj.category.equals(selectedCategoryFilter, ignoreCase = true)
+
+            matchesSearch && matchesStatus && matchesCategory
+        }
+
+        list = when (sortBy) {
+            "Oldest" -> list.sortedBy { it.createdAt }
+            "Title" -> list.sortedBy { it.title.lowercase() }
+            else -> list.sortedByDescending { it.createdAt } // Newest
+        }
+
+        list
+    }
+
+    // Pagination calculations
+    val totalItems = filteredProjects.size
+    val totalPages = maxOf(1, (totalItems + itemsPerPage - 1) / itemsPerPage)
+    val paginatedProjects = remember(filteredProjects, currentPage) {
+        filteredProjects.drop(currentPage * itemsPerPage).take(itemsPerPage)
     }
 
     fun openForm(project: DynamicProject?) {
@@ -103,9 +154,9 @@ fun AdminProjectManagementScreen(navController: NavController) {
                 }
             )
         }
-    ) { padding ->
+    ) { paddingValues ->
         if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         } else {
@@ -113,7 +164,7 @@ fun AdminProjectManagementScreen(navController: NavController) {
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
-                    .padding(padding)
+                    .padding(paddingValues)
                     .padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
@@ -125,13 +176,131 @@ fun AdminProjectManagementScreen(navController: NavController) {
                         style = MaterialTheme.typography.titleLarge
                     )
                     Text(
-                        "Admins can create, edit, delete and publish dynamic portfolio projects.",
+                        "Admins can create, edit, delete and publish dynamic portfolio projects. User notifications are no longer automatically sent upon modifications.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                     )
                 }
 
-                if (projectsList.isEmpty()) {
+                /* SEARCH & FILTER CONTROLS TABLE-LIKE INTERFACE */
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            // Search field
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("Search projects...") },
+                                leadingIcon = { Icon(Icons.Default.Search, null) },
+                                trailingIcon = {
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { searchQuery = "" }) {
+                                            Icon(Icons.Default.Clear, null)
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                                )
+                            )
+
+                            Spacer(Modifier.height(12.dp))
+
+                            // Status Filters Row
+                            Text("Publication Status", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf("All", "Published", "Unpublished").forEach { statusOpt ->
+                                    val isSel = selectedStatusFilter == statusOpt
+                                    FilterChip(
+                                        selected = isSel,
+                                        onClick = { selectedStatusFilter = statusOpt },
+                                        label = { Text(statusOpt) }
+                                    )
+                                }
+                            }
+
+                            // Category Filters Row
+                            if (categoriesList.size > 1) {
+                                Text("Category Filter", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState())
+                                        .padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    categoriesList.forEach { catOpt ->
+                                        val isSel = selectedCategoryFilter == catOpt
+                                        FilterChip(
+                                            selected = isSel,
+                                            onClick = { selectedCategoryFilter = catOpt },
+                                            label = { Text(catOpt) }
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(8.dp))
+
+                            // Sorting Toggle
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Sort Order", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .clickable {
+                                            sortBy = when (sortBy) {
+                                                "Newest" -> "Oldest"
+                                                "Oldest" -> "Title"
+                                                else -> "Newest"
+                                            }
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = when (sortBy) {
+                                                "Title" -> "Title A-Z"
+                                                "Oldest" -> "Oldest First"
+                                                else -> "Newest First"
+                                            },
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Icon(
+                                            imageVector = when (sortBy) {
+                                                "Title" -> Icons.Default.SortByAlpha
+                                                "Oldest" -> Icons.Default.ArrowUpward
+                                                else -> Icons.Default.ArrowDownward
+                                            },
+                                            contentDescription = null,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (paginatedProjects.isEmpty()) {
                     item {
                         Box(
                             modifier = Modifier
@@ -139,11 +308,11 @@ fun AdminProjectManagementScreen(navController: NavController) {
                                 .padding(vertical = 40.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("No projects in database. Click '+' to add one.")
+                            Text("No projects match the criteria. Click '+' to add one.")
                         }
                     }
                 } else {
-                    items(projectsList, key = { it.id }) { project ->
+                    items(paginatedProjects, key = { it.id }) { project ->
                         AdminProjectItem(
                             project = project,
                             onEdit = { openForm(project) },
@@ -151,9 +320,6 @@ fun AdminProjectManagementScreen(navController: NavController) {
                                 coroutineScope.launch {
                                     val updated = project.copy(isPublished = !project.isPublished)
                                     firebaseService.saveDynamicProject(updated)
-                                    if (updated.isPublished) {
-                                        firebaseService.broadcastProjectNotification(updated)
-                                    }
                                     loadProjects()
                                 }
                             },
@@ -164,6 +330,47 @@ fun AdminProjectManagementScreen(navController: NavController) {
                                 }
                             }
                         )
+                    }
+
+                    /* PAGINATION FOOTER CONTROL */
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Page ${currentPage + 1} of $totalPages (${totalItems} items total)",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilledIconButton(
+                                    onClick = { if (currentPage > 0) currentPage-- },
+                                    enabled = currentPage > 0,
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                ) {
+                                    Icon(Icons.Default.ChevronLeft, "Previous Page")
+                                }
+
+                                FilledIconButton(
+                                    onClick = { if (currentPage < totalPages - 1) currentPage++ },
+                                    enabled = currentPage < totalPages - 1,
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                ) {
+                                    Icon(Icons.Default.ChevronRight, "Next Page")
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -265,9 +472,6 @@ fun AdminProjectManagementScreen(navController: NavController) {
 
                         coroutineScope.launch {
                             firebaseService.saveDynamicProject(newProj)
-                            if (newProj.isPublished) {
-                                firebaseService.broadcastProjectNotification(newProj)
-                            }
                             isFormOpen = false
                             loadProjects()
                         }

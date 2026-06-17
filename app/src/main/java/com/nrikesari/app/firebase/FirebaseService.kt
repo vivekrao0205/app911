@@ -390,6 +390,34 @@ class FirebaseService {
         }
     }
 
+    suspend fun broadcastCustomNotification(title: String, message: String, type: String = "general", clickAction: String = ""): Result<Unit> {
+        return try {
+            val usersResult = getAllUsers()
+            if (usersResult.isSuccess) {
+                val allUsers = usersResult.getOrDefault(emptyList())
+                for (user in allUsers) {
+                    if (user.uid.isNotEmpty()) {
+                        val notifId = UUID.randomUUID().toString()
+                        val notification = Notification(
+                            id = notifId,
+                            userId = user.uid,
+                            title = title,
+                            message = message,
+                            type = type,
+                            clickAction = clickAction,
+                            isAdminAlert = false
+                        )
+                        saveNotification(notification)
+                    }
+                }
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+
     suspend fun deleteDynamicProject(projectId: String): Result<Unit> {
         return try {
             firestore.collection("projects").document(projectId).delete().await()

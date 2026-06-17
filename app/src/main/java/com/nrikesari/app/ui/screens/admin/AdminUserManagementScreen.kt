@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.scale
 import androidx.navigation.NavController
 import com.nrikesari.app.firebase.FirebaseService
 import com.nrikesari.app.model.Booking
@@ -48,6 +51,12 @@ fun AdminUserManagementScreen(navController: NavController) {
     var editingBooking by remember { mutableStateOf<Booking?>(null) }
     var selectedBookingStatus by remember { mutableStateOf("Pending") }
 
+    // Table sorting & filtering states
+    var selectedStatusFilter by remember { mutableStateOf("All") } // All, Active, Suspended
+    var sortBy by remember { mutableStateOf("Newest") } // Newest, Oldest, Name
+    var currentPage by remember { mutableStateOf(0) }
+    val itemsPerPage = 8
+
     fun loadUserDetails(userId: String) {
         isDetailLoading = true
         coroutineScope.launch {
@@ -74,12 +83,38 @@ fun AdminUserManagementScreen(navController: NavController) {
         loadUsers()
     }
 
-    val filteredUsers = remember(usersList, searchQuery) {
-        usersList.filter {
-            it.name.contains(searchQuery, ignoreCase = true) ||
-            it.email.contains(searchQuery, ignoreCase = true) ||
-            it.phone.contains(searchQuery, ignoreCase = true)
+    // Reset page index on filter change
+    LaunchedEffect(searchQuery, selectedStatusFilter, sortBy) {
+        currentPage = 0
+    }
+
+    val filteredUsers = remember(usersList, searchQuery, selectedStatusFilter, sortBy) {
+        var list = usersList.filter {
+            val matchesSearch = it.name.contains(searchQuery, ignoreCase = true) ||
+                    it.email.contains(searchQuery, ignoreCase = true) ||
+                    it.phone.contains(searchQuery, ignoreCase = true)
+            val matchesStatus = when (selectedStatusFilter) {
+                "Active" -> it.accountStatus == "active"
+                "Suspended" -> it.accountStatus == "suspended"
+                else -> true
+            }
+            matchesSearch && matchesStatus
         }
+
+        list = when (sortBy) {
+            "Oldest" -> list.sortedBy { it.joinedAt }
+            "Name" -> list.sortedBy { it.name.lowercase() }
+            else -> list.sortedByDescending { it.joinedAt } // Newest
+        }
+
+        list
+    }
+
+    // Pagination calculations
+    val totalItems = filteredUsers.size
+    val totalPages = maxOf(1, (totalItems + itemsPerPage - 1) / itemsPerPage)
+    val paginatedUsers = remember(filteredUsers, currentPage) {
+        filteredUsers.drop(currentPage * itemsPerPage).take(itemsPerPage)
     }
 
     Scaffold(
@@ -115,53 +150,144 @@ fun AdminUserManagementScreen(navController: NavController) {
                 )
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(10.dp))
 
-            /* USERS LIST */
+            /* FILTER CHIPS ROW */
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("All", "Active", "Suspended").forEach { statusOpt ->
+                        val isSel = selectedStatusFilter == statusOpt
+                        FilterChip(
+                            selected = isSel,
+                            onClick = { selectedStatusFilter = statusOpt },
+                            label = { Text(statusOpt) }
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable {
+                            sortBy = when (sortBy) {
+                                "Newest" -> "Oldest"
+                                "Oldest" -> "Name"
+                                else -> "Newest"
+                            }
+                        }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = when (sortBy) {
+                                "Name" -> "Name A-Z"
+                                "Oldest" -> "Oldest Join"
+                                else -> "Newest Join"
+                            },
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            imageVector = if (sortBy == "Newest") Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            /* USERS LIST AND PAGINATION */
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-            } else if (filteredUsers.isEmpty()) {
+            } else if (paginatedUsers.isEmpty()) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    Text("No users found.")
+                    Text("No users found matching filters.")
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(filteredUsers, key = { it.uid }) { user ->
-                        UserListItem(
-                            user = user,
-                            onClick = {
-                                selectedUser = user
-                                loadUserDetails(user.uid)
-                            },
-                            onSuspendToggle = {
-                                coroutineScope.launch {
-                                    if (user.accountStatus == "suspended") {
-                                        firebaseService.reactivateUser(user.uid)
-                                    } else {
-                                        firebaseService.suspendUser(user.uid)
+                Column(modifier = Modifier.weight(1f)) {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(paginatedUsers, key = { it.uid }) { user ->
+                            UserListItem(
+                                user = user,
+                                onClick = {
+                                    selectedUser = user
+                                    loadUserDetails(user.uid)
+                                },
+                                onSuspendToggle = {
+                                    coroutineScope.launch {
+                                        if (user.accountStatus == "suspended") {
+                                            firebaseService.reactivateUser(user.uid)
+                                        } else {
+                                            firebaseService.suspendUser(user.uid)
+                                        }
+                                        loadUsers()
                                     }
-                                    loadUsers()
+                                },
+                                onDelete = {
+                                    coroutineScope.launch {
+                                        firebaseService.deleteUser(user.uid)
+                                        loadUsers()
+                                    }
                                 }
-                            },
-                            onDelete = {
-                                coroutineScope.launch {
-                                    firebaseService.deleteUser(user.uid)
-                                    loadUsers()
-                                }
-                            }
+                            )
+                        }
+                    }
+
+                    /* PAGINATION CONTROLS FOOTER */
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Page ${currentPage + 1} of $totalPages (${totalItems} users)",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilledIconButton(
+                                onClick = { if (currentPage > 0) currentPage-- },
+                                enabled = currentPage > 0,
+                                modifier = Modifier.size(36.dp),
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                )
+                            ) {
+                                Icon(Icons.Default.ChevronLeft, null, modifier = Modifier.size(16.dp))
+                            }
+                            FilledIconButton(
+                                onClick = { if (currentPage < totalPages - 1) currentPage++ },
+                                enabled = currentPage < totalPages - 1,
+                                modifier = Modifier.size(36.dp),
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                )
+                            ) {
+                                Icon(Icons.Default.ChevronRight, null, modifier = Modifier.size(16.dp))
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
-    /* USER DETAILS MODAL SHEET */
+    /* PREMIUM USER DETAILS MODAL SHEET */
     selectedUser?.let { user ->
         ModalBottomSheet(
             onDismissRequest = { selectedUser = null },
@@ -174,78 +300,184 @@ fun AdminUserManagementScreen(navController: NavController) {
                     .padding(bottom = 40.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Profile header block
                 item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                    ) {
+                        Row(
                             modifier = Modifier
-                                .size(50.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = user.name.take(1).uppercase(Locale.getDefault()),
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 20.sp
-                            )
-                        }
-                        Spacer(Modifier.width(16.dp))
-                        Column {
-                            Text(user.displayName, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            Text(user.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = user.name.take(1).uppercase(Locale.getDefault()),
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 24.sp
+                                )
+                            }
+                            Spacer(Modifier.width(16.dp))
+                            Column {
+                                Text(user.displayName, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                                Text(
+                                    text = user.email,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
 
+                // Profile detail info card
                 item {
-                    HorizontalDivider()
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                text = "Account Info",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            HorizontalDivider()
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Phone Number", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                Text(if(user.phone.isBlank()) "Not Provided" else user.phone, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Member Since", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                val sdf = SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault())
+                                Text(sdf.format(Date(user.joinedAt)), fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Status", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                val isSusp = user.accountStatus == "suspended"
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (isSusp) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer)
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        text = user.accountStatus.uppercase(),
+                                        color = if (isSusp) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
+                /* ACTIVITY SUMMARY CARDS */
                 item {
-                    Text("Profile Information", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(6.dp))
-                    Text("Phone: ${if(user.phone.isBlank()) "N/A" else user.phone}", fontSize = 14.sp)
-                    val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-                    Text("Registration Date: ${sdf.format(Date(user.joinedAt))}", fontSize = 14.sp)
-                    Text("Status: ${user.accountStatus.uppercase(Locale.getDefault())}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                }
-
-                item {
-                    HorizontalDivider()
-                }
-
-                /* ACTIVITY LOGS */
-                item {
-                    Text("Activity History", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = "Activity Overview",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
                 }
 
                 if (isDetailLoading) {
                     item {
-                        Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                        Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator()
                         }
                     }
                 } else {
                     item {
-                        Text("Project Inquiries: ${userInquiries.size}", fontSize = 14.sp)
-                        Text("Consultation Bookings: ${userBookings.size}", fontSize = 14.sp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(14.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(Icons.Default.Assignment, null, tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.height(4.dp))
+                                    Text("${userInquiries.size}", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                    Text("Inquiries", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(14.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(Icons.Default.Event, null, tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.height(4.dp))
+                                    Text("${userBookings.size}", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                    Text("Bookings", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
                     }
 
                     if (userInquiries.isNotEmpty()) {
                         item {
-                            Text("Inquiries Submitted:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Project Inquiries List", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
                         items(userInquiries) { inquiry ->
                             Card(
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
                             ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Text(inquiry.service, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                    Text(inquiry.description, style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(inquiry.service, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(inquiry.status, color = MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
                                     Spacer(Modifier.height(4.dp))
-                                    Text("Status: ${inquiry.status}", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                                    Text(inquiry.description, style = MaterialTheme.typography.bodySmall, maxLines = 2)
                                 }
                             }
                         }
@@ -253,7 +485,7 @@ fun AdminUserManagementScreen(navController: NavController) {
 
                     if (userBookings.isNotEmpty()) {
                         item {
-                            Text("Meetings Booked:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Consultation Bookings List", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
                         items(userBookings) { booking ->
                             Card(
@@ -263,12 +495,27 @@ fun AdminUserManagementScreen(navController: NavController) {
                                         editingBooking = booking
                                         selectedBookingStatus = booking.status ?: "Pending"
                                     },
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
                             ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Text("Consultation Date: ${booking.date} @ ${booking.timeSlot}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                    Text("Status: ${booking.status}", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Date: ${booking.date}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(booking.status ?: "Pending", color = MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text("Time Slot: ${booking.timeSlot}", style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }

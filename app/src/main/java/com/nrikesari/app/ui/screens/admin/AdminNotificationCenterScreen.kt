@@ -3,10 +3,14 @@ package com.nrikesari.app.ui.screens.admin
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -14,7 +18,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +42,18 @@ fun AdminNotificationCenterScreen(navController: NavController) {
     var showArchived by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
 
+    // Table sorting & pagination states
+    var sortBy by remember { mutableStateOf("Newest") } // Newest, Oldest, Title
+    var currentPage by remember { mutableStateOf(0) }
+    val itemsPerPage = 8
+
+    // Manual notification composer state
+    var isCreateSheetOpen by remember { mutableStateOf(false) }
+    var newTitle by remember { mutableStateOf("") }
+    var newMessage by remember { mutableStateOf("") }
+    var newType by remember { mutableStateOf("general") }
+    var newClickAction by remember { mutableStateOf("") }
+
     // Live Snapshot Listener for notifications
     DisposableEffect(Unit) {
         val firestore = FirebaseFirestore.getInstance()
@@ -55,14 +73,34 @@ fun AdminNotificationCenterScreen(navController: NavController) {
         }
     }
 
-    val filteredAlerts = remember(alertsList, searchQuery, filterType, showArchived) {
-        alertsList.filter {
+    // Reset pagination when filter/search/sort changes
+    LaunchedEffect(searchQuery, filterType, showArchived, sortBy) {
+        currentPage = 0
+    }
+
+    val filteredAlerts = remember(alertsList, searchQuery, filterType, showArchived, sortBy) {
+        var list = alertsList.filter {
             val isArchived = it.status == "Archived"
             val matchesArchive = if (showArchived) isArchived else !isArchived
             matchesArchive &&
             (filterType == "All" || it.type.equals(filterType, ignoreCase = true)) &&
             (it.title.contains(searchQuery, ignoreCase = true) || it.message.contains(searchQuery, ignoreCase = true))
         }
+
+        list = when (sortBy) {
+            "Oldest" -> list.sortedBy { it.timestamp }
+            "Title" -> list.sortedBy { it.title.lowercase() }
+            else -> list.sortedByDescending { it.timestamp } // Newest
+        }
+
+        list
+    }
+
+    // Pagination calculations
+    val totalItems = filteredAlerts.size
+    val totalPages = maxOf(1, (totalItems + itemsPerPage - 1) / itemsPerPage)
+    val paginatedAlerts = remember(filteredAlerts, currentPage) {
+        filteredAlerts.drop(currentPage * itemsPerPage).take(itemsPerPage)
     }
 
     Scaffold(
@@ -75,6 +113,9 @@ fun AdminNotificationCenterScreen(navController: NavController) {
                     }
                 },
                 actions = {
+                    IconButton(onClick = { isCreateSheetOpen = true }) {
+                        Icon(Icons.Default.AddCircleOutline, "Send Notification")
+                    }
                     if (alertsList.any { !it.isRead && it.status != "Archived" }) {
                         TextButton(
                             onClick = {
@@ -113,9 +154,11 @@ fun AdminNotificationCenterScreen(navController: NavController) {
 
             Spacer(Modifier.height(12.dp))
 
-            /* FILTER TABS */
+            /* FILTER TABS ROW */
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf("All", "Registration", "Message", "Booking", "Inquiry").forEach { type ->
@@ -141,27 +184,63 @@ fun AdminNotificationCenterScreen(navController: NavController) {
 
             Spacer(Modifier.height(8.dp))
             
-            /* SHOW ARCHIVED TOGGLE */
+            /* SHOW ARCHIVED & SORT ROW */
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Show Archived Alerts", style = MaterialTheme.typography.bodyMedium)
-                Switch(
-                    checked = showArchived,
-                    onCheckedChange = { showArchived = it }
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Show Archived Alerts", style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.width(4.dp))
+                    Switch(
+                        checked = showArchived,
+                        onCheckedChange = { showArchived = it },
+                        modifier = Modifier.scale(0.8f)
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable {
+                            sortBy = when (sortBy) {
+                                "Newest" -> "Oldest"
+                                "Oldest" -> "Title"
+                                else -> "Newest"
+                            }
+                        }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = when (sortBy) {
+                                "Title" -> "Title A-Z"
+                                "Oldest" -> "Oldest First"
+                                else -> "Newest First"
+                            },
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            imageVector = if (sortBy == "Newest") Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(12.dp))
 
-            /* LIST */
+            /* LIST AND PAGINATION */
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-            } else if (filteredAlerts.isEmpty()) {
+            } else if (paginatedAlerts.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     contentAlignment = Alignment.Center
@@ -173,30 +252,174 @@ fun AdminNotificationCenterScreen(navController: NavController) {
                     }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(filteredAlerts, key = { it.id }) { alert ->
-                        AdminNotificationItem(
-                            alert = alert,
-                            onMarkRead = {
-                                coroutineScope.launch {
-                                    firebaseService.markNotificationAsRead(alert.id)
+                Column(modifier = Modifier.weight(1f)) {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(paginatedAlerts, key = { it.id }) { alert ->
+                            AdminNotificationItem(
+                                alert = alert,
+                                onMarkRead = {
+                                    coroutineScope.launch {
+                                        firebaseService.markNotificationAsRead(alert.id)
+                                    }
+                                },
+                                onArchive = {
+                                    coroutineScope.launch {
+                                        firebaseService.updateNotificationStatus(alert.id, "Archived")
+                                    }
+                                },
+                                onDelete = {
+                                    coroutineScope.launch {
+                                        firebaseService.deleteNotification(alert.id)
+                                    }
                                 }
-                            },
-                            onArchive = {
-                                coroutineScope.launch {
-                                    firebaseService.updateNotificationStatus(alert.id, "Archived")
-                                }
-                            },
-                            onDelete = {
-                                coroutineScope.launch {
-                                    firebaseService.deleteNotification(alert.id)
-                                }
-                            }
-                        )
+                            )
+                        }
                     }
+
+                    /* PAGINATION FOOTER */
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Page ${currentPage + 1} of $totalPages (${totalItems} items)",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilledIconButton(
+                                onClick = { if (currentPage > 0) currentPage-- },
+                                enabled = currentPage > 0,
+                                modifier = Modifier.size(36.dp),
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                )
+                            ) {
+                                Icon(Icons.Default.ChevronLeft, null, modifier = Modifier.size(16.dp))
+                            }
+                            FilledIconButton(
+                                onClick = { if (currentPage < totalPages - 1) currentPage++ },
+                                enabled = currentPage < totalPages - 1,
+                                modifier = Modifier.size(36.dp),
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                )
+                            ) {
+                                Icon(Icons.Default.ChevronRight, null, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /* MANUAL NOTIFICATION COMPOSER BOTTOM SHEET */
+    if (isCreateSheetOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { isCreateSheetOpen = false },
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 50.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    text = "Broadcast User Notification",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                OutlinedTextField(
+                    value = newTitle,
+                    onValueChange = { newTitle = it },
+                    label = { Text("Notification Title") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                OutlinedTextField(
+                    value = newMessage,
+                    onValueChange = { newMessage = it },
+                    label = { Text("Message Body") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Text("Alert Type", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("general", "project_update", "message", "booking", "inquiry").forEach { typeOpt ->
+                        val isSel = newType == typeOpt
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { newType = typeOpt }
+                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = typeOpt.replace("_", " ").uppercase(),
+                                color = if (isSel) Color.White else MaterialTheme.colorScheme.onSurface,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = newClickAction,
+                    onValueChange = { newClickAction = it },
+                    label = { Text("Deep Link Route (Optional)") },
+                    placeholder = { Text("e.g. chat/project_id or my_projects") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                Button(
+                    onClick = {
+                        if (newTitle.isBlank() || newMessage.isBlank()) return@Button
+                        coroutineScope.launch {
+                            firebaseService.broadcastCustomNotification(
+                                title = newTitle.trim(),
+                                message = newMessage.trim(),
+                                type = newType,
+                                clickAction = newClickAction.trim()
+                            )
+                            isCreateSheetOpen = false
+                            newTitle = ""
+                            newMessage = ""
+                            newType = "general"
+                            newClickAction = ""
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Send, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Broadcast to All Users", fontWeight = FontWeight.Bold)
                 }
             }
         }
